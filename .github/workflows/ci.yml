@@ -1,0 +1,45 @@
+# Tests and builds Holotable. The repo is private, so every minute here is paid: one job, no matrix, and pull requests
+# cancel their own superseded runs.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # the forceteki submodule (public, depth 1): the tests read card specs from it and the card data lands in it
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          submodules: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - id: pin
+        run: echo "forceteki=$(git rev-parse HEAD:forceteki)" >> "$GITHUB_OUTPUT"
+      # card data comes from a live API through forceteki's get-cards; fetched once per engine pin
+      - id: cards
+        uses: actions/cache@v5
+        with:
+          path: forceteki/test/json
+          key: card-data-${{ steps.pin.outputs.forceteki }}
+      - if: steps.cards.outputs.cache-hit != 'true'
+        run: npm run cards
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run typecheck
+      # no Atlas kit here (ATLAS_KIT), so these builds warn and leave out the Atlas spots
+      - run: npm run build
+      - run: npm run build:kit
