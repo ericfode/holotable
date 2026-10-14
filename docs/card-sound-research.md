@@ -33,7 +33,7 @@ These are source-code observations and design risks, not a claimed listening eva
 | Every voice uses `tanh`; every cue has a 16:1 compressor with a 3 ms attack. | These are potential transient/contrast problems. Actual harshness, pumping, or gain reduction must be evaluated by listening and measurement; the settings alone do not establish those defects. |
 | The voice cap accepts notes chronologically. | Under sufficiently dense input, a later important result can be dropped while less important earlier sounds remain. Preserve the principal event before optional detail. |
 
-See [audio.ts](../studio/src/effects/audio.ts) and [soundScore.ts](../studio/src/effects/soundScore.ts). The existing unlock, mute, cancellation, and volume plumbing is useful and can be retained.
+See [audio.ts](../src/effects/audio.ts) and [soundScore.ts](../src/effects/soundScore.ts). The existing unlock, mute, cancellation, and volume plumbing is useful and can be retained.
 
 ## Proposed direction for the cards
 

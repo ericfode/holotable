@@ -8,7 +8,7 @@ Initial production fingerprint: `71bfc5dc70fb90c37761a26db9f848ac6530afa4b27de45
 
 Read-only rules sources: the ten installed JSON files under `forceteki/test/json/Card/`, matching SOR event classes, `docs/card-animation-a03-spec.md`, staged fixtures, payment resolver, outcome extractor, shared overlay geometry, and A03 signature gates. Engine revision: `2be4fcdb4325346bb4a1ba14b29d4f66a1093e2a`. No engine/source/build edits or new games were performed for this review.
 
-The independent focused command `node --test studio/test/card-effects-a03.test.cjs studio/test/card-effect-evidence-gates.test.cjs` passed **19/19**. It verifies imported identity and print aliases, exact costs, supporting card facts, immutable state resolution, physical-card conservation, stable token identities, owners, and replay reset behavior. These are source/state assertions, not rendered acceptance.
+The independent focused command `node --test test/card-effects-a03.test.cjs test/card-effect-evidence-gates.test.cjs` passed **19/19**. It verifies imported identity and print aliases, exact costs, supporting card facts, immutable state resolution, physical-card conservation, stable token identities, owners, and replay reset behavior. These are source/state assertions, not rendered acceptance.
 
 | Card | Mandatory staged ending and distinctions checked |
 | --- | --- |

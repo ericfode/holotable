@@ -12,7 +12,7 @@ The ten installed JSON identities, exact sole prints and aliases, every matching
 
 Independent scripts live in `results/card-effects-review/A06-gpt61/scripts/`. `ending-oracle.cjs` is manually specified from the rules and written fixtures; it imports no production builder or resolver. `source-audit.cjs` compares actual construction to that oracle. Preparation artifacts retain `sourceFingerprint=null` and are not frozen acceptance. Final `source-oracle.json` passes all ten saved-source primaries and the separate Anger boundary: **11/11**.
 
-`source80/served-manifest.json` preserves all **39** served source hashes and **126** read-only JSON/rules/test/system hashes. Every saved hash was verified again when writing the receipt. The separately hashed `studio/src/lib/cards.ts` loader dependency is declared in `audit-support-manifest.json`; it is not misrepresented as one of the served manifest's 39 files. A07's working tree is separate from these immutable source80 bytes and the frozen production captures.
+`source80/served-manifest.json` preserves all **39** served source hashes and **126** read-only JSON/rules/test/system hashes. Every saved hash was verified again when writing the receipt. The separately hashed `src/lib/cards.ts` loader dependency is declared in `audit-support-manifest.json`; it is not misrepresented as one of the served manifest's 39 files. A07's working tree is separate from these immutable source80 bytes and the frozen production captures.
 
 | Identity / exact print / canonical ID | Primary event price | Independent expected ending |
 | --- | ---: | --- |

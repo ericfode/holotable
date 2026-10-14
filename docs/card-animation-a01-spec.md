@@ -22,9 +22,9 @@ The ten rows below agree with both that packet and installed JSON `setCodes`.
 Every one currently has exactly one print alias. Do not register speculative
 reprints or resolve an unknown present print code by title.
 
-The data implementation is [batchA01.ts](../studio/src/effects/batchA01.ts),
+The data implementation is [batchA01.ts](../src/effects/batchA01.ts),
 with focused state/evidence checks in
-[card-effects-a01.test.cjs](../studio/test/card-effects-a01.test.cjs). These
+[card-effects-a01.test.cjs](../test/card-effects-a01.test.cjs). These
 files package this specification; they do not establish visual acceptance.
 
 | Scene slug / internal name | Engine identity | Canonical print / all print aliases | Printed cost | Required aspects, preserving duplicates | Trait |
@@ -754,7 +754,7 @@ ownership: one author for shared mechanics, then signatures/fixtures, with a
 different reviewer. Do not split writers across the same integration file.
 The relevant seams are `catalogue.ts`, `abilities.ts`, `showcase.ts`, `preview.ts`,
 `previewCosts.ts`, `previewState.ts`, `outcomes.ts`, `detect.ts`, `types.ts`,
-`CardEffectOverlay.tsx` and `primitives.tsx` under `studio/src/effects/`, plus the
+`CardEffectOverlay.tsx` and `primitives.tsx` under `src/effects/`, plus the
 minimum board presentation typing/rendering required for pending statuses.
 
 Semantics/state checks before capture:
@@ -781,7 +781,7 @@ Semantics/state checks before capture:
   preserve their approved durations/compositions. This specification itself has
   no product implementation and does not establish those tests have passed.
 
-Use `node studio/scripts/capture-effects.mjs --help` before capture. The inspected
+Use `node scripts/capture-effects.mjs --help` before capture. The inspected
 script supports `--cards`, 18/46/72/90/100 frames, natural completion comparison
 and a natural-completion image; do not assume that remains true after edits.
 Use a fresh `results/card-effects-review/a01/<pass>/` directory with exact source
