@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
     "fixtures": "node fixtures/generate.mjs",
     "build:kit": "tsc --noEmit && vite build --config vite.kit.config.ts --mode kit",
-    "check:lens": "vite build --ssr scripts/check-lens.ts --outDir .check --logLevel warn && node .check/check-lens.js"
+    "check:lens": "vite build --ssr scripts/check-lens.ts --outDir .check --logLevel warn && node .check/check-lens.js",
+    "cards": "npm --prefix forceteki ci --ignore-scripts --omit=dev --no-audit --no-fund && npm --prefix forceteki run get-cards"
   },
   "dependencies": {
     "animejs": "4.5.0",
