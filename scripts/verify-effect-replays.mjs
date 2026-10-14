@@ -10,22 +10,22 @@ import { effectSourceManifest } from './effect-source-manifest.mjs';
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(`--${name}`); return i < 0 ? fallback : args[i + 1]; };
 if (args.includes('--help')) {
-    console.log('Usage: node studio/scripts/verify-effect-replays.mjs --cards canonical-id,canonical-id [--url http://127.0.0.1:5191] [--tournament demo] [--games DIRECTORY] [--out FILE] [--limit-per-card 1] [--playwright MODULE] [--browser EXECUTABLE]\n\nUses existing recordings and installed browser dependencies. Checks before, natural completion, Replay and backward seek against recorded snapshots. Reports requested cards with no recording separately. Requires the served build to match current effect source.');
+    console.log('Usage: node scripts/verify-effect-replays.mjs --cards canonical-id,canonical-id [--url http://127.0.0.1:5191] [--tournament demo] [--games DIRECTORY (default $REPLAYS_DIR or replays/, then <tournament>/games)] [--out FILE] [--limit-per-card 1] [--playwright MODULE] [--browser EXECUTABLE]\n\nUses existing recordings and installed browser dependencies. Checks before, natural completion, Replay and backward seek against recorded snapshots. Reports requested cards with no recording separately. Requires the served build to match current effect source.');
     process.exit(0);
 }
-const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const requested = option('cards', '').split(',').filter(Boolean);
 assert.ok(requested.length, 'Supply --cards with canonical catalogue IDs.');
 const url = option('url', 'http://127.0.0.1:5191');
 const tournament = option('tournament', 'demo');
-const gamesDirectory = path.resolve(option('games', path.join(repository, 'replays', tournament, 'games')));
+const gamesDirectory = path.resolve(option('games', path.join(process.env.REPLAYS_DIR || path.join(repository, 'replays'), tournament, 'games')));
 const output = path.resolve(option('out', path.join(repository, 'results/card-effects-state-check/recorded-replays.json')));
 const limit = Number(option('limit-per-card', '1'));
 assert.ok(Number.isInteger(limit) && limit > 0, '--limit-per-card must be a positive integer.');
 const { chromium } = require(option('playwright', process.env.PLAYWRIGHT_MODULE ?? 'playwright'));
 const executablePath = option('browser', process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE);
-const ts = require(path.join(repository, 'studio/node_modules/typescript5'));
+const ts = require(path.join(repository, 'node_modules/typescript5'));
 const modules = new Map();
 function loadTS(filename) {
     filename = path.resolve(filename);
@@ -40,9 +40,9 @@ function loadTS(filename) {
         ? loadTS(path.resolve(path.dirname(filename), `${specifier}.ts`)) : localRequire(specifier), module, module.exports);
     return module.exports;
 }
-const { classifyGame } = loadTS(path.join(repository, 'studio/src/data/actions.ts'));
-const { detectCardEffects } = loadTS(path.join(repository, 'studio/src/effects/detect.ts'));
-const { CARD_EFFECTS } = loadTS(path.join(repository, 'studio/src/effects/catalogue.ts'));
+const { classifyGame } = loadTS(path.join(repository, 'src/data/actions.ts'));
+const { detectCardEffects } = loadTS(path.join(repository, 'src/effects/detect.ts'));
+const { CARD_EFFECTS } = loadTS(path.join(repository, 'src/effects/catalogue.ts'));
 for (const id of requested) assert.ok(CARD_EFFECTS.some(card => card.id === id), `Unknown catalogue ID: ${id}`);
 const source = effectSourceManifest();
 const cases = [];

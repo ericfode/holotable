@@ -1,0 +1,30 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# builds
+dist/
+dist-static/
+dist-kit/
+.check/
+
+# staged data for static builds (fixtures/stage.mjs)
+static-replays/
+static-data/
+
+# generated fixtures (npm run fixtures, fixtures/lens-cases/make.mjs)
+fixtures/replays/
+fixtures/lens-cases/golden/
+fixtures/lens-cases/out/
+
+# local data the dev server serves (REPLAYS_DIR, EVALS_DIR, LENS_DIR defaults)
+/replays/
+/evals/
+/lens/
+
+# capture, audio and inventory output (scripts/)
+results/
+
+.DS_Store
+.claude/worktrees/

@@ -20,7 +20,7 @@ const packed: Record<string, string> = {};
 /**
  * Use a pack of images ({"SOR_010": "data:...", "SOR_010-b": ...}, or a URL to one) instead of the CDN; cards not in
  * the pack fall back to tiles. A pack can also be {"parts": ["a.json", "b.json"]} (URLs relative to it), for packs too
- * big for one file. Made by studio/scripts/art-pack.py.
+ * big for one file. Made by scripts/art-pack.py.
  */
 export async function loadArtPack(pack: string | Record<string, string>): Promise<number> {
     const read = async (url: string): Promise<Record<string, string>> => {

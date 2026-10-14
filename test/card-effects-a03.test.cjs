@@ -38,7 +38,7 @@ function staged(id, modify, modifyCue) {
     assert.deepEqual(before, savedBefore); assert.deepEqual(cue, savedCue);
     return { definition, before, cue, after, p1: after.players.p1, p2: after.players.p2 };
 }
-const cardDir = path.join(__dirname, '../../forceteki/test/json/Card');
+const cardDir = path.join(__dirname, '../forceteki/test/json/Card');
 const cards = fs.readdirSync(cardDir).filter(n => n.endsWith('.json')).map(n => JSON.parse(fs.readFileSync(path.join(cardDir, n))));
 const printCode = p => `${p.set}_${String(p.number).padStart(3, '0')}`;
 const byPrint = new Map(cards.flatMap(c => (c.setCodes ?? []).map(p => [printCode(p), c])));

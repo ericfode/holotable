@@ -9,14 +9,14 @@ import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : fallback; };
-const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.resolve(option('out', path.join(repository, 'results/card-effects-audio')));
 const url = option('url', 'http://127.0.0.1:5190/#/effects');
 const require = createRequire(import.meta.url);
 const playwrightModule = option('playwright', process.env.PLAYWRIGHT_MODULE ?? 'playwright');
 const executablePath = option('browser', process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE);
 if (args.includes('--help')) {
-    console.log('Usage: node studio/scripts/render-effect-audio.mjs [--url URL] [--out DIRECTORY] [--playwright MODULE_PATH] [--browser EXECUTABLE] [--skip-ui]\n\nRequires the local Vite dev server and installed Playwright/Chromium. Never downloads dependencies or plays audio through hardware. Exports 20 stereo 48 kHz WAV files, metrics.json, and an audition page.');
+    console.log('Usage: node scripts/render-effect-audio.mjs [--url URL] [--out DIRECTORY] [--playwright MODULE_PATH] [--browser EXECUTABLE] [--skip-ui]\n\nRequires the local Vite dev server and installed Playwright/Chromium. Never downloads dependencies or plays audio through hardware. Exports 20 stereo 48 kHz WAV files, metrics.json, and an audition page.');
     process.exit(0);
 }
 let chromium;

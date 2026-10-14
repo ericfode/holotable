@@ -1,8 +1,12 @@
 {
-  "name": "swu-studio",
+  "name": "holotable",
   "private": true,
   "version": "0.1.0",
+  "description": "Holotable: the Star Wars Unlimited replay and tournament viewer, and the embeddable viewer kit",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test test/*.test.cjs",
     "dev": "vite",

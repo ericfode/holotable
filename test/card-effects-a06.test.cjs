@@ -24,7 +24,7 @@ const definition=id=>A06_DEFINITIONS.find(c=>c.id===id);
 function cueFor(d,b,choices){return {definition:d,source:b.players.p1.hand.find(c=>c.s===d.setCode),seat:'p1',target:null,key:'a06:test',playPayment:a06PreviewPayment(d,b,'p1'),outcomes:a06PreviewOutcomes(d,b,'p1',choices??{})};}
 function staged(id,modify,choices,changeCue){const d=definition(id),before=a06ShowcaseState(d);if(modify)modify(before);const cue=cueFor(d,before,choices);if(changeCue)changeCue(cue,before);const old=clone(before),oldCue=clone(cue),after=resolvePreviewState(before,cue);assert.deepEqual(before,old);assert.deepEqual(cue,oldCue);assert.deepEqual(resolvePreviewState(before,cue),after);return {d,before,cue,after,p:after.players.p1,q:after.players.p2};}
 const physical=s=>Object.values(s.players).flatMap(p=>[p.base,...(p.leader?.dep===0?[p.leader]:[]),...p.hand,...p.discard,...(p.resources??[]),...(p.knownDeck??[]),...p.ground,...p.space,...[...p.ground,...p.space].flatMap(u=>[...(u.u??[]),...(u.cap??[])])]);
-const cardDir=path.join(__dirname,'../../forceteki/test/json/Card');
+const cardDir=path.join(__dirname,'../forceteki/test/json/Card');
 const allJSON=fs.readdirSync(cardDir).filter(f=>f.endsWith('.json')).map(f=>JSON.parse(fs.readFileSync(path.join(cardDir,f))));
 const byPrint=new Map(allJSON.flatMap(c=>(c.setCodes??[]).map(p=>[`${p.set}_${String(p.number).padStart(3,'0')}`,c])));
 

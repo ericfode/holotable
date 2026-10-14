@@ -27,17 +27,18 @@ function effectReviewManifest(): Plugin {
 }
 
 /**
- * Serves the replay routes of spec/replay-format.md (GET /api/tournaments and /replays/*), straight from a replays
- * folder, so `npm run dev` and `npm run preview` need no second server. REPLAYS_DIR overrides <repo>/replays. Also
+ * Serves the replay routes of docs/replay-format.md (GET /api/tournaments and /replays/*), straight from a replays
+ * folder, so `npm run dev` and `npm run preview` need no second server. REPLAYS_DIR overrides <repo>/replays (point it
+ * at the arena's replays folder, e.g. ../swu_bot/replays, to watch its games); EVALS_DIR and LENS_DIR likewise. Also
  * /evals/<gameId>.json, /lens/<gameId>.json, /lens/<dir>/<gameId>.json (one subfolder per score, plus evaluators.json
  * and each folder's index.json) and /card-text.json (CARD_TEXT, default DEFAULT_CARD_TEXT when it exists).
  */
 function replays(): Plugin {
-    const root = path.resolve(process.env.REPLAYS_DIR ?? path.join(__dirname, '..', 'replays'));
+    const root = path.resolve(process.env.REPLAYS_DIR ?? path.join(__dirname, 'replays'));
     // position evaluations, one <gameId>.json per game (the research dashboard's evals contract)
-    const evalsDir = path.resolve(process.env.EVALS_DIR ?? path.join(__dirname, '..', 'evals'));
-    // the omni bot's card values, one <gameId>.json per game (swu-lens/1, see bot/omni/lens.js)
-    const lensDir = path.resolve(process.env.LENS_DIR ?? path.join(__dirname, '..', 'lens'));
+    const evalsDir = path.resolve(process.env.EVALS_DIR ?? path.join(__dirname, 'evals'));
+    // the omni bot's card values, one <gameId>.json per game (swu-lens/1, written by the arena's bot/omni/lens.js)
+    const lensDir = path.resolve(process.env.LENS_DIR ?? path.join(__dirname, 'lens'));
     // printed card data (swu-card-text/1), served as /card-text.json for text faces and aspect colours on cards without
     // art; CARD_TEXT overrides the path, CARD_TEXT= (empty) turns it off
     const cardText = process.env.CARD_TEXT ?? DEFAULT_CARD_TEXT;

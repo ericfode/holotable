@@ -1,11 +1,11 @@
 // Lens test fixtures for the score sources (swu-lens/1 with the optional fields of the lens proposal,
 // /mnt/project-files/viewer-kit/LENS-proposal.md sections 3-6): one folder per case, each a lens folder on its own, plus
 // the replays the cases use. Built from one current omni lens file, one written before 08:40 and their replays.
-//   node fixtures/lens-cases/make.mjs [outDir]   (run from studio/; default: studio/fixtures/lens-cases/out)
+//   node fixtures/lens-cases/make.mjs [outDir]   (run from the repo root; default: fixtures/lens-cases/out)
 // Inputs, each overridable by an env var:
 //   BASE_LENS      a current omni lens file           /mnt/project-files/dashboard/lens/heuristic-vs-omni-102.json
 //   BASE_REPLAY    its replay                         <gameId>.jsonl in results/omni-ref-*/games, then any other games folder
-//   OLD_LENS       a lens file written before 08:40   studio/static-data/data/_lens/omni-blind-vs-heuristic-101.json
+//   OLD_LENS       a lens file written before 08:40   static-data/data/_lens/omni-blind-vs-heuristic-101.json
 //                  (no evaluator block). `npm run build:static` wipes static-data/, so when the file is gone it is rebuilt
 //                  from the same game's current file (OLD_LENS_FROM, default dashboard/lens/<same name>) by dropping what
 //                  08:40 added; for omni-blind-vs-heuristic-101 that gives the same bytes as the old file.
@@ -148,7 +148,7 @@ if (old.file.evaluator) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Evaluator blocks
 
-const SOURCE = (what) => `studio/fixtures/lens-cases/make.mjs: test fixture, ${what}`;
+const SOURCE = (what) => `fixtures/lens-cases/make.mjs: test fixture, ${what}`;
 
 function evaluator(e) {
     return {
@@ -777,7 +777,7 @@ put('cases.json', pretty({
 const md = [
     '# Lens test fixtures',
     '',
-    'Written by `make.mjs` (`node fixtures/lens-cases/make.mjs`, run from `studio/`). Don\'t edit these files: change the script and run it again. Every run writes the same bytes.',
+    'Written by `make.mjs` (`node fixtures/lens-cases/make.mjs`, run from the repo root). Don\'t edit these files: change the script and run it again. Every run writes the same bytes.',
     '',
     `The cases are the lens design's test fixtures 1-17. Fixture 18 (all current files) is not generated: it is \`${PF}/dashboard/lens\` with its replays.`,
     '',
@@ -785,7 +785,7 @@ const md = [
     `- \`replays/\` is a replays folder with one tournament, \`${TID}\`, holding every game the cases use: ${games.map((g) => `\`${g.gameId}\``).join(', ')}.`,
     '- `cases.json` is the same list for scripts, with the rules each case breaks on purpose.',
     '',
-    'Open a case in the dev server (from `studio/`):',
+    'Open a case in the dev server (from the repo root):',
     '',
     '```bash',
     'REPLAYS_DIR=fixtures/lens-cases/out/replays LENS_DIR=fixtures/lens-cases/out/<case> npm run dev',

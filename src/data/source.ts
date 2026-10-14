@@ -4,7 +4,7 @@ import type { CardTextFile } from '../lib/cardText';
 import type { End, Game, Header, Step, TournamentIndex, TournamentSummary } from './types';
 import { resultText } from './result';
 
-/** Where replays come from: the replays server (GET /api/tournaments and /replays/*, spec/replay-format.md) or fixtures baked into the build. */
+/** Where replays come from: the replays server (GET /api/tournaments and /replays/*, docs/replay-format.md) or fixtures baked into the build. */
 export interface DataSource {
     kind: 'http' | 'static';
     listTournaments(): Promise<TournamentSummary[]>;

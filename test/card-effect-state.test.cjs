@@ -396,7 +396,7 @@ test('insufficient play or additional resources reject an invalid example instea
     assert.deepEqual(laser.p1.res, { ready: 0, total: 10 });
 });
 
-const dataDirectory = path.resolve(__dirname, '../../forceteki/test/json/Card');
+const dataDirectory = path.resolve(__dirname, '../forceteki/test/json/Card');
 test('verified preview costs and fixture providers agree with installed read-only card data', { skip: !fs.existsSync(dataDirectory) }, () => {
     for (const definition of CARD_EFFECTS) {
         const card = JSON.parse(fs.readFileSync(path.join(dataDirectory, `${definition.id}.json`), 'utf8'));

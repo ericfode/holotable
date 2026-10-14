@@ -3,7 +3,7 @@ import { readLensIndex } from './lensFile';
 import type { TournamentIndex, TournamentSummary } from './types';
 
 // Tournaments staged by fixtures/stage.mjs (real replays or generated fixtures). Either bundled into the page as raw
-// text (studio/static-replays), or, with STATIC_DATA=files, published as files beside the page under data/ (with a
+// text (static-replays/), or, with STATIC_DATA=files, published as files beside the page under data/ (with a
 // data/manifest.json listing the tournaments) and fetched when opened, so a preview can carry more games than fit in one file.
 // card-text.json beside the tournaments is the printed card data for cards without art (staged from CARD_TEXT).
 const files = import.meta.glob('../../static-replays/**/*.{json,jsonl}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
