@@ -1,4 +1,4 @@
-// Fills studio/static-replays/, which `npm run build:static` bakes into the single-file build.
+// Fills static-replays/, which `npm run build:static` bakes into the single-file build.
 //   STATIC_REPLAYS=dirA:dirB  copy every tournament (a folder with index.json) found in those replays folders
 //   STATIC_EVALS=dir          also bundle position evaluations (<gameId>.json, dashboard evals contract) from dir
 //   STATIC_LENS=dir           also bundle lens files (<gameId>.json, swu-lens/1) from dir: the default path, evaluators.json,
@@ -7,7 +7,7 @@
 //                             and staged as card-text.json; default /mnt/project-files/viewer-kit/card-text.json when it
 //                             exists, CARD_TEXT= (empty) to leave it out
 //   (unset)                   generate the fixture tournaments (fixtures/generate.mjs) and use those
-//   STATIC_DATA=files         don't bake the data into the page: stage it in studio/static-data/data/ with a manifest.json,
+//   STATIC_DATA=files         don't bake the data into the page: stage it in static-data/data/ with a manifest.json,
 //                             to publish beside the page (the page fetches data/<path>); more games fit than in one file
 import fs from 'node:fs';
 import path from 'node:path';

@@ -13,11 +13,11 @@ The user confirmed the **entire imported catalogue** and **GPT-6.1-sol at `xhigh
 | Imported non-mock identities | 2,458 | Raw card map minus mock identities. |
 | Non-mock print codes | 2,549 | `_setCodeMap.json` has 2,570 entries before the 21 mock print codes are excluded. Reprints are not new animation identities. |
 | Bot environment index | 2,039 | Current inventory audit of `Env.index()`; filters through `implementedCards`. This is not the complete engine-capability boundary: keyword-only cards can be excluded. |
-| Existing authored event scenes | 20 | Approved composition baseline, now registered in `studio/src/effects/catalogue.ts`. |
+| Existing authored event scenes | 20 | Approved composition baseline, now registered in `src/effects/catalogue.ts`. |
 | New scenes accepted | 160 | A01 through A16 accepted; clean streak0. |
 | Freshly accepted under the completed-board contract | 180 | R01, R02 and A01 through A16 accepted. The remaining 2,278 identities are not yet accepted. |
 
-Imported data and engine implementations are read-only references. Units, leaders, upgrades, bases, tokens, and delayed-trigger scenes are in scope; add their necessary semantics before calling those identities supported. Group verified reprints under one identity. The complete pending queue is generated with `node studio/scripts/card-animation-inventory.cjs --scope imported --out results/card-animation-catalogue/imported` (246 batches including the two baseline rounds).
+Imported data and engine implementations are read-only references. Units, leaders, upgrades, bases, tokens, and delayed-trigger scenes are in scope; add their necessary semantics before calling those identities supported. Group verified reprints under one identity. The complete pending queue is generated with `node scripts/card-animation-inventory.cjs --scope imported --out results/card-animation-catalogue/imported` (246 batches including the two baseline rounds).
 
 ## Starting evidence and demonstrated failure
 

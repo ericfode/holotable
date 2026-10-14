@@ -1,13 +1,17 @@
 # Replay and tournament format (v1)
 
-What `bot/tournament.js` writes and what the viewer (`studio/`) reads. A replay holds the decisions plus a compact board snapshot
+What the arena's `bot/tournament.js` writes and what this viewer (Holotable) reads. A replay holds the decisions plus a compact board snapshot
 after every decision, so a viewer never needs the engine; with its deck lists, seed and chosen action indices it can
 also be played again on the engine. Fields marked *(added)* are newer than the original repo's writer; readers that
 predate them ignore them. Machine-checkable versions:
 [`schemas/replay-event.schema.json`](schemas/replay-event.schema.json),
 [`schemas/tournament-index.schema.json`](schemas/tournament-index.schema.json),
 [`schemas/tournament-list.schema.json`](schemas/tournament-list.schema.json). TypeScript types:
-`studio/src/data/types.ts`. Writer: `bot/match.js` (events) and `bot/view.js` (snapshots).
+`src/data/types.ts`. Writer: `bot/match.js` (events) and `bot/view.js` (snapshots).
+
+This copy came over from the arena repo (ericfode/swu_bot, `spec/replay-format.md`) with its history. Paths under `bot/`
+are in that repo, and the documents it names (`protocol.md`, `bot-interface.md`) are in its `spec/`. A format change
+starts there, with the writer, and is mirrored here.
 
 ## Files
 
@@ -50,7 +54,7 @@ replays/                          (REPLAYS_DIR; gitignored)
 | `games[].faultKind` *(added, optional)* | With `by`, in runs on `bot/game-pool.js` (`ladder.js`, the arena): how the bot failed, `load` (could not be built), `error` (threw, crashed or answered wrong), `time` (over the time cap) or `hang` (stopped by the watchdog). `null` otherwise. |
 | `games[].rounds`, `steps`, `ms` | Final round number, decisions taken, wall time. `0` while running. |
 | `games[].timing` *(added)* | Per seat: `n` decisions, `ms` total, `p50`, `p95`, `max` per decision, in milliseconds, timed by the referee around each decision (for a program: the whole exchange, simulations included). |
-| `games[].key` *(added)* | The game's own secret, which its random streams were derived from (see [protocol.md](protocol.md#fairness)), written when the game ends; `bot/ladder.js` waits until every game on its seed has ended, since the seat-swapped games share it. Absent until then and in runs seeded from the seed alone. (Indexes written before this field have one top-level `key` for the run instead.) |
+| `games[].key` *(added)* | The game's own secret, which its random streams were derived from (see the arena's `spec/protocol.md`, Fairness), written when the game ends; `bot/ladder.js` waits until every game on its seed has ended, since the seat-swapped games share it. Absent until then and in runs seeded from the seed alone. (Indexes written before this field have one top-level `key` for the run instead.) |
 
 ## Game file (`.jsonl`)
 
@@ -80,7 +84,7 @@ A game whose bot failed at `hello` has only the header and the end.
 | | `decks` *(added)* | `{ p1, p2 }`: both deck lists, `{ metadata, leader, base, deck: [{ id, count }], isPresentInDb }`, the format `Env.newGame` takes. |
 | `step` | `n` | Decision number; `0` is the opening board. |
 | | `pid` | Seat that decided (absent on step 0). |
-| | `prompt` | Prompt signature at decision time, e.g. `actionWindow\|-` (see [bot-interface.md](bot-interface.md)). |
+| | `prompt` | Prompt signature at decision time, e.g. `actionWindow\|-` (see the arena's `spec/bot-interface.md`). |
 | | `title` | Prompt text (`menuTitle`) at decision time; may be `""` or `null`. |
 | | `action` | `{ kind, label }` of the chosen action (labels as in bot-interface.md), plus *(added)* `i` (its index among the legal actions), `id` (the card id it acts on, when it has one) and `split` (`[{ id, amount }]` sent for a distribute action, zero amounts left out). |
 | | `legal` | Number of legal actions the bot chose from. |
@@ -142,7 +146,7 @@ It is the bot's board view (protocol.md, `state`) with both hands shown and no `
 Card art for a ref: `https://cdn.swu-db.com/images/cards/<SET>/<NNN>.png` from `s`, with `-b` before `.png` for a
 deployed leader. Tokens and unreleased sets have no art.
 
-## HTTP (studio's dev and preview server)
+## HTTP (Holotable's dev and preview server)
 
 | Request | Response |
 |---|---|
@@ -154,7 +158,7 @@ deployed leader. Tokens and unreleased sets have no art.
 
 A game file is appended line by line while it is played, and `index.json` lists the game with `outcome: "running"` from
 its first move. A reader following a live game must drop an unfinished last line (no trailing newline) and treat a
-file with a header but no `end` as in progress. `studio/src/data/source.ts` (`parseGame(text, allowPartial)`) does this, and the viewer
+file with a header but no `end` as in progress. `src/data/source.ts` (`parseGame(text, allowPartial)`) does this, and the viewer
 re-polls.
 
 ## Compatibility rules

@@ -1,4 +1,4 @@
-// Replay fields as spec/replay-format.md defines them (written by bot/recorder.js and bot/tournament.js).
+// Replay fields as docs/replay-format.md defines them (written by the arena's bot/recorder.js and bot/tournament.js).
 // Optional presentation statuses are used by explicit staged examples; recorded snapshots stay unchanged.
 
 export type Seat = 'p1' | 'p2';

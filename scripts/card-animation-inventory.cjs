@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 
-const repository = path.resolve(__dirname, '../..');
+const repository = path.resolve(__dirname, '..');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const read = (relative) => fs.readFileSync(path.join(repository, relative), 'utf8');
 const json = (relative) => JSON.parse(read(relative));
@@ -21,28 +21,31 @@ const countBy = (items, key) => items.reduce((counts, item) => {
 }, {});
 
 function options(args) {
-    const result = { scope: 'bot', out: path.join(repository, 'results/card-animation-catalogue') };
+    const result = { scope: 'imported', out: path.join(repository, 'results/card-animation-catalogue'), arena: process.env.ARENA_DIR ?? null };
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--help') return { help: true };
-        if (!['--scope', '--out'].includes(args[i]) || !args[i + 1] || args[i + 1].startsWith('--')) {
+        if (!['--scope', '--out', '--arena'].includes(args[i]) || !args[i + 1] || args[i + 1].startsWith('--')) {
             throw new Error(`Unknown or incomplete argument: ${args[i]}. Use --help.`);
         }
         result[args[i].slice(2)] = args[++i];
     }
     assert.ok(['bot', 'imported'].includes(result.scope), '--scope must be bot or imported');
+    // the bot scope asks the arena's Env (bot/env.js in a swu_bot checkout) which cards its bots can play
+    assert.ok(result.scope !== 'bot' || result.arena, '--scope bot needs --arena DIRECTORY (or ARENA_DIR): a swu_bot checkout with its engine built');
     result.out = path.resolve(result.out);
+    if (result.arena) result.arena = path.resolve(result.arena);
     return result;
 }
 
 /** Parse literal declarations without executing renderer code or guessing identities from titles. */
 function authoredCatalogue(cataloguePath) {
     let ts;
-    for (const location of ['studio/node_modules/typescript5']) {
+    for (const location of ['node_modules/typescript5']) {
         try { ts = require(path.join(repository, location)); break; } catch (error) {
             if (error.code !== 'MODULE_NOT_FOUND') throw error;
         }
     }
-    assert.ok(ts, 'Install repository dependencies with npm run setup (the catalogue parser uses TypeScript).');
+    assert.ok(ts, 'Install dependencies with npm ci (the catalogue parser uses TypeScript).');
     const modules = new Map();
     const parse = (relative) => {
         if (modules.has(relative)) return modules.get(relative);
@@ -102,14 +105,14 @@ function authoredCatalogue(cataloguePath) {
 function main() {
     const args = options(process.argv.slice(2));
     if (args.help) {
-        console.log('Usage: node studio/scripts/card-animation-inventory.cjs [--scope bot|imported] [--out DIRECTORY]\n\nDefault scope: bot. Default output: results/card-animation-catalogue.\nWrites inventory.json and batches.json. Existing scenes remain authored but reviewed:false; all batches are pending.\nImported reads installed JSON; bot also instantiates Env once to use its authoritative index. No games, downloads, or engine edits.');
+        console.log('Usage: node scripts/card-animation-inventory.cjs [--scope imported|bot] [--arena DIRECTORY] [--out DIRECTORY]\n\nDefault scope: imported. Default output: results/card-animation-catalogue.\nWrites inventory.json and batches.json. Existing scenes remain authored but reviewed:false; all batches are pending.\nImported reads installed JSON (forceteki/test/json); bot also instantiates the arena\'s Env once (--arena or ARENA_DIR: a swu_bot checkout with its engine built) to use its authoritative index. No games, downloads, or engine edits.');
         return;
     }
     const dataRoot = 'forceteki/test/json';
     const cardMap = json(`${dataRoot}/_cardMap.json`);
     const setCodeMap = json(`${dataRoot}/_setCodeMap.json`);
     const mockNames = new Set(json(`${dataRoot}/_mockCardNames.json`));
-    const cataloguePath = 'studio/src/effects/catalogue.ts';
+    const cataloguePath = 'src/effects/catalogue.ts';
     const { effects, aliases, sourceFiles } = authoredCatalogue(cataloguePath);
     const dataHash = createHash('sha256');
     const records = cardMap.map((entry) => {
@@ -150,7 +153,7 @@ function main() {
     }
     let eligibleIds = null;
     if (args.scope === 'bot') {
-        const { Env } = require(path.join(repository, 'bot/env.js'));
+        const { Env } = require(path.join(args.arena, 'bot/env.js'));
         eligibleIds = new Set(Object.values(new Env().index()).flat().map((card) => card.id));
         for (const id of eligibleIds) assert.ok(byId.has(id), `Bot index references unknown identity ${id}`);
     }
@@ -178,9 +181,13 @@ function main() {
             || a.internalName.localeCompare(b.internalName));
     const fingerprints = [
         `${dataRoot}/_cardMap.json`, `${dataRoot}/_setCodeMap.json`, `${dataRoot}/_mockCardNames.json`,
-        ...sourceFiles, 'skills/swu-card-animation/SKILL.md', 'bot/env.js',
-        'forceteki/build/server/game/cards/Index.js', 'studio/scripts/card-animation-inventory.cjs'
+        ...sourceFiles, 'skills/swu-card-animation/SKILL.md',
+        'forceteki/build/server/game/cards/Index.js', 'scripts/card-animation-inventory.cjs'
     ].map((source) => ({ path: source, sha256: fs.existsSync(path.join(repository, source)) ? sha256(read(source)) : null }));
+    if (args.arena) {
+        const env = path.join(args.arena, 'bot/env.js');
+        fingerprints.push({ path: 'arena:bot/env.js', sha256: fs.existsSync(env) ? sha256(fs.readFileSync(env, 'utf8')) : null });
+    }
     let engineHead = null;
     try { engineHead = execFileSync('git', ['-C', path.join(repository, 'forceteki'), 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { /* Source archives need no Git history. */ }
     const provenance = { engineHead, cardDataSha256: dataHash.digest('hex'), files: fingerprints };

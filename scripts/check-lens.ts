@@ -1,4 +1,4 @@
-// Lens check, run from studio/ (built by `npm run check:lens`, which bundles this file with the app's own modules):
+// Lens check, run from the repo root (built by `npm run check:lens`, which bundles this file with the app's own modules):
 //   npm run check:lens -- --golden <outDir> [--force] [--lens <dir>] [--replays <dir>...]
 //       For every <gameId>.json in the lens folder (default /mnt/project-files/dashboard/lens), loads it and its replay
 //       with the app's code and writes <outDir>/<gameId>.json: per step what the viewer shows (edge, both totals, every

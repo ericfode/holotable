@@ -170,8 +170,8 @@ test('a later leader status at control-return boundary defeats that leader inste
 
 test('A01 exact prints, complete costs and real fixture stats agree with installed read-only card data', () => {
     assert.equal(A01_DEFINITIONS.length, 10);
-    const cardData = new Map(fs.readdirSync(path.join(__dirname, '../../forceteki/test/json/Card')).filter(file => file.endsWith('.json')).map(file => {
-        const data = JSON.parse(fs.readFileSync(path.join(__dirname, '../../forceteki/test/json/Card', file), 'utf8'));
+    const cardData = new Map(fs.readdirSync(path.join(__dirname, '../forceteki/test/json/Card')).filter(file => file.endsWith('.json')).map(file => {
+        const data = JSON.parse(fs.readFileSync(path.join(__dirname, '../forceteki/test/json/Card', file), 'utf8'));
         return [data.internalName, data];
     }));
     const prints = new Map();

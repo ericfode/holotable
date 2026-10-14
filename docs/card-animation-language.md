@@ -2,7 +2,7 @@
 
 This vocabulary began with twenty event compositions and now grows through the rounds in [the batch ledger](card-animation-batches.md). The table of those original twenty cards below remains their reference; later specifications record new identities and chosen examples. This is a visual contract for the Holotable viewer, not a second rules engine. A registered identity is accepted only after its completed board and independent visual review pass.
 
-The executable vocabulary is [abilities.ts](../studio/src/effects/abilities.ts). Recorded evidence comes from [outcomes.ts](../studio/src/effects/outcomes.ts). Explicit demonstrations use [preview.ts](../studio/src/effects/preview.ts) and the [staged board](../studio/src/effects/showcase.ts). None of these changes the game state or the pinned engine.
+The executable vocabulary is [abilities.ts](../src/effects/abilities.ts). Recorded evidence comes from [outcomes.ts](../src/effects/outcomes.ts). Explicit demonstrations use [preview.ts](../src/effects/preview.ts) and the [staged board](../src/effects/showcase.ts). None of these changes the game state or the pinned engine.
 
 The [reuse catalogue](card-animation-reuse.md) records existing shared code and candidate recipes for later refactoring, with concrete examples, required evidence and rule differences. Use it to recycle demonstrated mechanics without treating similar card text as proof of the same result.
 
@@ -128,6 +128,6 @@ The framework does not supply meaning. Target anchoring, a visible number, a cor
 
 ## Verification and frame review
 
-The focused suite is `npm --prefix studio test`. It checks registered staged examples, recorded identities and unknowns, actual before/after state, legal payment, ownership/control, phase and incarnation prerequisites, explicit movement destinations and incomplete-evidence fallbacks. New kinds require targeted assertions for their meaningful failure cases. Exact per-round results and available real recording checks belong in the batch ledger.
+The focused suite is `npm test`. It checks registered staged examples, recorded identities and unknowns, actual before/after state, legal payment, ownership/control, phase and incarnation prerequisites, explicit movement destinations and incomplete-evidence fallbacks. New kinds require targeted assertions for their meaningful failure cases. Exact per-round results and available real recording checks belong in the batch ledger.
 
 Visual acceptance requires 18%, 46%, 72% and 90% frames, a 100% final board, and the overlay-free ending after natural playback. The ordinary board must retain every result after the overlay disappears. Independently inspect ordered desktop/mobile pixels and live timing, then check replay/reset, backward seeking, cancellation and reduced motion. The current [animation skill](../skills/swu-card-animation/SKILL.md) defines score thresholds, frozen-build evidence and effort decisions. Preserve failed first-pass evidence; tests, registration and a build alone do not establish acceptance.

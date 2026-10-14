@@ -52,14 +52,14 @@ function allCards(state) {
 
 test('A02 canonical identities, aliases, costs and every real staged face agree with authoritative JSON', () => {
     // Read installed authoritative inputs directly; ignored review artifacts are not test prerequisites.
-    const cardDir = path.join(__dirname, '../../forceteki/test/json/Card');
+    const cardDir = path.join(__dirname, '../forceteki/test/json/Card');
     const cards = fs.readdirSync(cardDir).filter(name => name.endsWith('.json')).map(name => JSON.parse(fs.readFileSync(path.join(cardDir, name))));
     const byPrint = new Map();
     const printCode = print => `${print.set}_${String(print.number).padStart(3, '0')}`;
     for (const c of cards) for (const print of c.setCodes ?? []) byPrint.set(printCode(print), c);
     for (const definition of A02_DEFINITIONS) {
         const actual = cards.find(c => c.internalName === definition.id);
-        const json = JSON.parse(fs.readFileSync(path.join(__dirname, '../../forceteki/test/json/Card', `${definition.id}.json`)));
+        const json = JSON.parse(fs.readFileSync(path.join(__dirname, '../forceteki/test/json/Card', `${definition.id}.json`)));
         assert.equal(actual.id, json.id);
         assert.equal(definition.name, json.title);
         assert.equal(definition.setCode, printCode(actual.setId));

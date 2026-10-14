@@ -1,13 +1,13 @@
 ---
 name: swu-card-animation
-description: Author, extend, and review Star Wars Unlimited card animations in swu_bot's Holotable, including legal staged examples, replay evidence, and the completed board state. Use for card-effect animation batches and their visual quality workflow; sound design is separate.
+description: Author, extend, and review Star Wars Unlimited card animations in Holotable, including legal staged examples, replay evidence, and the completed board state. Use for card-effect animation batches and their visual quality workflow; sound design is separate.
 ---
 
 # SWU card animation
 
 Make the card's action readable on the table: who acted, what was affected, what changed, and where it went. An effect is complete only when the ordinary board still shows its result after the animation disappears.
 
-Work from the `swu_bot` repository root. Read `CLAUDE.md`, [the visual language](../../../docs/card-animation-language.md), [the batch ledger](../../../docs/card-animation-batches.md), and relevant entries in [the reuse catalogue](../../../docs/card-animation-reuse.md). Use installed card JSON under `forceteki/test/json/Card/` and the matching implementation under `forceteki/server/game/cards/` as read-only rules sources. Do not modify the engine or infer mechanics from a card's title/art.
+Work from the Holotable repository root. Read `CLAUDE.md`, [the visual language](../../../docs/card-animation-language.md), [the batch ledger](../../../docs/card-animation-batches.md), and relevant entries in [the reuse catalogue](../../../docs/card-animation-reuse.md). Use installed card JSON under `forceteki/test/json/Card/` (the submodule's card data, see `README.md`) and the matching implementation under `forceteki/server/game/cards/` as read-only rules sources. Do not modify the engine or infer mechanics from a card's title/art.
 
 ## Scope and batch contract
 
@@ -26,7 +26,7 @@ Work from the `swu_bot` repository root. Read `CLAUDE.md`, [the visual language]
 3. **Describe anticipation → action → held result.** Use readable motion, shape, destination, and numbers; color reinforces these. Anchor to the measured card/zone, and keep important action clear of captions. Scale spectacle to the effect: Repair's focused grid and Superlaser Blast's six-target sweep both work because their scope is unmistakable.
 4. **Implement through the existing seams.** `catalogue.ts` holds identity and timing; `abilities.ts` holds complete clauses and example choices; `showcase.ts`/`preview.ts` provide staged evidence; `detect.ts`/`outcomes.ts` extract replay evidence; `CardEffectOverlay.tsx`, `primitives.tsx`, and `animationTimeline.ts` render it. Keep one deterministic Anime.js clock for live playback and scrubbing. Add a shared primitive only for a new mechanical meaning, and a card signature for its distinct choreography.
 
-All paths above are under `studio/src/effects/`. Inspect current code before editing; these are responsibilities, not a requirement to change every file.
+All paths above are under `src/effects/`. Inspect current code before editing; these are responsibilities, not a requirement to change every file.
 
 ## Presentation state is part of the effect
 
@@ -58,11 +58,11 @@ All paths above are under `studio/src/effects/`. Inspect current code before edi
 
 ## Verify the result, then count it
 
-Run `npm --prefix studio test` and `npm --prefix studio run build` after implementation. Add focused state assertions for new mechanics, identity ambiguity, interrupted transitions, or lifecycle changes. Do not write tests that merely echo the declaration being tested.
+Run `npm test` and `npm run build` after implementation. Add focused state assertions for new mechanics, identity ambiguity, interrupted transitions, or lifecycle changes. Do not write tests that merely echo the declaration being tested.
 Read authoritative installed JSON directly in persistent tests; ignored generated review inventories must not become setup prerequisites.
-For available recorded examples, use `studio/scripts/verify-effect-replays.mjs --cards <canonical-ids>` against the matching production build. It checks actual before/after handoff, Replay and backward seek, and reports absent recordings separately; it does not generate games or claim replay coverage for missing cases.
+For available recorded examples, use `scripts/verify-effect-replays.mjs --cards <canonical-ids>` against the matching production build. It checks actual before/after handoff, Replay and backward seek, and reports absent recordings separately; it does not generate games or claim replay coverage for missing cases.
 
-Capture each card at 18%, 46%, 72%, and 90%, **plus an overlay-free completed-board image after natural playback**. Use the repository's existing browser dependencies and `studio/scripts/capture-effects.mjs`; inspect `--help` before running because its completed-state support and catalogue limit may change. If the tool lacks the fifth capture, add that support or capture it through the visible UI and record it explicitly. Give each batch its own output directory under `results/card-effects-review/`; preserve a manifest with card identity, example, viewport, progress, image hashes, source revision/fingerprint, and browser errors.
+Capture each card at 18%, 46%, 72%, and 90%, **plus an overlay-free completed-board image after natural playback**. Use the repository's existing browser dependencies and `scripts/capture-effects.mjs`; inspect `--help` before running because its completed-state support and catalogue limit may change. If the tool lacks the fifth capture, add that support or capture it through the visible UI and record it explicitly. Give each batch its own output directory under `results/card-effects-review/`; preserve a manifest with card identity, example, viewport, progress, image hashes, source revision/fingerprint, and browser errors.
 
 Assert selected title, caption, and progress before every frozen capture. Derive the expected title from the requested identity, not the current rendered title: a sampler that checked its observed title against itself missed same-document hash navigation retaining Bravado under four other filenames. Select through the UI or remount, then assert the intended identity. Wait for fonts/art and for edits to stop reloading the page. For tall mobile captures, offscreen lazy images can leave decode promises pending; make capture images eager and bound readiness waits, preserving any failed attempt. Stable pixels alone missed a prior HMR reset to the wrong card. Do not overwrite reviewed evidence with images from a different source revision under the same pass claim.
 Include shared board/card styles and the showcase page in the capture fingerprint; effect-module hashes alone missed a status-label CSS correction.

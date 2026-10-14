@@ -4,7 +4,7 @@
 
 The twenty card effects have original procedural scores. They use synthesized oscillators and shaped noise, with no licensed samples, external audio requests, or service cost. Each score combines a quiet card identity with a reusable sound for each recorded outcome. The soundtrack follows the same evidence boundary as the animation: `cue.outcomes` supplies the mechanics. Card rules are never expanded into sounds for branches that were not selected or changes that were not observed.
 
-`studio/src/effects/soundScore.ts` exports `scoreEffect(cue)`. `audio.ts` owns synthesis, playback cancellation, volume and silent offline rendering. The score only returns data. Timing (`at`, `duration`) is a fraction of the card's animation duration; `pitch` and `pitchEnd` are Hz. Noise seeds derive from the card identity and note position, so replaying an example with a new preview nonce preserves its timbre.
+`src/effects/soundScore.ts` exports `scoreEffect(cue)`. `audio.ts` owns synthesis, playback cancellation, volume and silent offline rendering. The score only returns data. Timing (`at`, `duration`) is a fraction of the card's animation duration; `pitch` and `pitchEnd` are Hz. Noise seeds derive from the card identity and note position, so replaying an example with a new preview nonce preserves its timbre.
 
 ## The shared nineteen sounds
 
@@ -69,6 +69,6 @@ Empty outcomes play only the quiet identity texture. Numeric zero outcomes add n
 
 ## Checks and audition
 
-`node --test studio/test/card-sound-score.test.cjs` checks all twenty deterministic identities, the nineteen distinct motifs, matching motifs across cards, modal selection, missing and zero outcomes, attack versus damage, intact return versus defeat, six Superlaser removals, Force sequencing, and bounded aggregate counts.
+`node --test test/card-sound-score.test.cjs` checks all twenty deterministic identities, the nineteen distinct motifs, matching motifs across cards, modal selection, missing and zero outcomes, attack versus damage, intact return versus defeat, six Superlaser removals, Force sequencing, and bounded aggregate counts.
 
-The audio engine's tests and `studio/scripts/render-effect-audio.mjs` cover synthesis and offline audition. An offline peak or RMS result checks the rendered signal; it is not a substitute for listening with the animation. Sound enablement and volume belong to the user-facing player, and paused/scrubbed examples must not repeatedly trigger notes.
+The audio engine's tests and `scripts/render-effect-audio.mjs` cover synthesis and offline audition. An offline peak or RMS result checks the rendered signal; it is not a substitute for listening with the animation. Sound enablement and volume belong to the user-facing player, and paused/scrubbed examples must not repeatedly trigger notes.

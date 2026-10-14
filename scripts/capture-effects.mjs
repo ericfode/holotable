@@ -9,7 +9,7 @@ import { effectSourceManifest } from './effect-source-manifest.mjs';
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : fallback; };
-const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.resolve(option('out', path.join(repository, 'results/card-effects-review')));
 const url = option('url', 'http://127.0.0.1:5190/#/effects');
 const require = createRequire(import.meta.url);
@@ -22,7 +22,7 @@ const selectedSlugs = option('cards', '').split(',').filter(Boolean);
 const stage = option('stage', 'play');
 if (!['play', 'regroup-start', 'next-action', 'phase-end'].includes(stage)) throw new Error('Use --stage play, regroup-start, next-action or phase-end.');
 if (args.includes('--help')) {
-    console.log('Usage: node studio/scripts/capture-effects.mjs [--url URL] [--out DIRECTORY] [--playwright MODULE_PATH] [--browser EXECUTABLE] [--viewport WIDTHxHEIGHT] [--cards comma,separated,slugs] [--stage play|regroup-start|next-action|phase-end]\n\nUses installed Playwright and Chromium; never installs dependencies.\nPLAYWRIGHT_MODULE and PLAYWRIGHT_CHROMIUM_EXECUTABLE are equivalent environment options.\nDefaults: http://127.0.0.1:5190/#/effects, results/card-effects-review, 1440x1100, all catalogue cards, play stage, installed playwright module/browser.');
+    console.log('Usage: node scripts/capture-effects.mjs [--url URL] [--out DIRECTORY] [--playwright MODULE_PATH] [--browser EXECUTABLE] [--viewport WIDTHxHEIGHT] [--cards comma,separated,slugs] [--stage play|regroup-start|next-action|phase-end]\n\nUses installed Playwright and Chromium; never installs dependencies.\nPLAYWRIGHT_MODULE and PLAYWRIGHT_CHROMIUM_EXECUTABLE are equivalent environment options.\nDefaults: http://127.0.0.1:5190/#/effects, results/card-effects-review, 1440x1100, all catalogue cards, play stage, installed playwright module/browser.');
     process.exit(0);
 }
 let chromium;

@@ -10,8 +10,8 @@ One score-context defect was found and corrected. `Board` received the score for
 
 Final reviewed source hashes:
 
-- `studio/src/kit/GameViewer.tsx`: `6fd5ece46282a6eb79689bec8a1881ed2bb768c0d67cd92d9b55033b9879a42e`
-- `studio/src/components/CardZoom.tsx`: `3ffbece657f05c15a82225d8f25e6ff87f2fcf49ccb26bb57bbbe3144cf36fbb`
+- `src/kit/GameViewer.tsx`: `6fd5ece46282a6eb79689bec8a1881ed2bb768c0d67cd92d9b55033b9879a42e`
+- `src/components/CardZoom.tsx`: `3ffbece657f05c15a82225d8f25e6ff87f2fcf49ccb26bb57bbbe3144cf36fbb`
 
 The integrator's completed validation was read separately: 632/632 studio tests, application typecheck/build and embedded-kit build pass. Existing final-board browser verification covers 392 cases at both sizes, and all four available recorded-action checks pass before/after, Replay and backward seeking. These are integrator-executed receipts, not reviewer execution or a second full pixel matrix. The integrator retains initial failed captures and the mechanical unused-memo typecheck failure before its correction, and owns the final matching served-manifest readback before opening the MR.
 

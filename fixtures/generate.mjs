@@ -2,7 +2,7 @@
 // (index.json + games/<id>.jsonl). The engine's card data can't be downloaded everywhere, so this plays a
 // simplified SWU-like game (units, upgrades, events, base damage, initiative, regroup) to produce realistic files.
 // Set codes use a fake "FIX" set so card art lookups 404 and the viewer falls back to tiles, as for tokens.
-//   node fixtures/generate.mjs [outDir]   (default: studio/fixtures/replays)
+//   node fixtures/generate.mjs [outDir]   (default: fixtures/replays)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
