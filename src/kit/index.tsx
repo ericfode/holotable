@@ -2,6 +2,7 @@
 //   <div id="game"></div>
 //   <script src="swu-viewer-kit.js"></script>
 //   <script>const v = SWUViewer.mount(document.getElementById('game'), { url: 'games/x.jsonl', evals, lens }); v.seek(120);</script>
+// SWUViewer.mountPlay(el, { table }) is the play screen on the host page's table (a person against a bot).
 // It renders into a shadow root, so its styles and the host page's styles never touch each other.
 import { useMemo, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -30,6 +31,9 @@ import {
 } from '../data/score';
 import { OMNI_V1_ID } from '../data/omniV1';
 import type { Game, Seat, Snapshot } from '../data/types';
+import { PlayPage } from '../pages/PlayPage';
+import { TableContext, type DeckOption, type Table, type TableOptions } from '../play/client';
+import type { Act, TableMsg } from '../play/protocol';
 
 export interface MountOptions {
     /** the game: a parsed Game, the .jsonl text, or a URL to fetch it from (exactly one) */
@@ -479,6 +483,31 @@ export function mountBoard(el: HTMLElement, state: Snapshot, opts: { bots?: Reco
     };
 }
 
+/**
+ * Holotable's play screen (#/play) on a table the host page gives: pick a deck, play the bot on the board, see the end.
+ * `table` is a play/client.ts Table (the arena window's /play runs the referee and the bot in a worker of the tab).
+ * The game is not kept in the host page's address, so a reload starts over.
+ */
+export function mountPlay(el: HTMLElement, opts: { table: Table; fonts?: boolean; cardText?: CardTextFile | string }) {
+    if (opts.fonts !== false) {
+        ensureFonts();
+    }
+    if (opts.cardText) {
+        loadCardText(opts.cardText).catch(() => undefined);
+    }
+    const shadow = el.shadowRoot ?? el.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `<style>${shadowCss}</style><div class="swuv-root"></div>`;
+    const root = createRoot(shadow.lastElementChild as HTMLElement);
+    root.render(
+        <MotionConfig reducedMotion="user">
+            <TableContext.Provider value={{ ...opts.table, resumable: false }}>
+                <PlayPage />
+            </TableContext.Provider>
+        </MotionConfig>
+    );
+    return { destroy: () => root.unmount() };
+}
+
 /** The lens inputs a kit function takes: one file, a list as in mount's `lens`, or a resolved series. */
 type ScoreArg = LensEntry | LensEntry[] | ScoreSeries | null | undefined;
 const isSeries = (x: object): x is ScoreSeries => 'source' in x && 'scales' in x && Array.isArray((x as ScoreSeries).steps);
@@ -535,3 +564,4 @@ export { GameViewer, Glyph, Spine, ActionIcon, EdgeBreakdown, parseGame, classif
 export { edgeTerms, estimateLens, lensAt, lensByIndex };
 export type { EvalFile, Game, Action, ActionClass, ActionIconProps, LensEntry, LensFile, LensIndex, LensStep, LensInput, FileStep };
 export type { Chance, ScoreSeries, ScoreSource, ScoreStep, ScoreView };
+export type { Act, DeckOption, Table, TableMsg, TableOptions };

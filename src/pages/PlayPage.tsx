@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Flag, Loader2, Minus, Play, Plus, RotateCcw } from 'lucide-react';
 import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
@@ -9,39 +9,46 @@ import { cardTextBySet } from '../lib/cardText';
 import { createSettingsStore, SettingsProvider } from '../lib/settings';
 import { hashParam } from '../lib/route';
 import { PickContext, type Pick } from '../play/pick';
-import { concede, follow, replayUrl, sendAct, startGame, tableOptions, type TableOptions } from '../play/client';
+import { TableContext, type TableOptions } from '../play/client';
 import { promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
 
 /**
  * Play mode (#/play): a person sits at a table (the arena's bot/table) against a bot. The board is the replay board
  * drawn from the person's seat; every legal move is a glowing card, a button in the prompt bar, or an entry in
- * "All moves", so no prompt can leave the person stuck. The table checks every answer again.
+ * "All moves", so no prompt can leave the person stuck. The table checks every answer again. The table is the
+ * TableContext's (play/client.ts): the HTTP table by default, or the host page's (the viewer kit's mountPlay).
  */
 export function PlayPage() {
+    const table = useContext(TableContext);
     const [game, setGame] = useState<{ id: string; seat: Seat; bot: string } | null>(() => {
-        const id = hashParam('g');
+        const id = table.resumable ? hashParam('g') : null;
         return id ? { id, seat: 'p1', bot: hashParam('bot') ?? 'bot' } : null;
     });
+    // the HTTP table keeps playing a game across a reload, so its address names the game
+    const address = (to: string) => {
+        if (table.resumable) {
+            try {
+                history.replaceState(null, '', to);
+            } catch {
+                // the game just isn't kept in the address
+            }
+        }
+    };
     const begin = (g: { id: string; seat: Seat; bot: string }) => {
         setGame(g);
-        try {
-            history.replaceState(null, '', `#/play?g=${encodeURIComponent(g.id)}&bot=${encodeURIComponent(g.bot)}`);
-        } catch {
-            // the game just isn't kept in the address
-        }
+        address(`#/play?g=${encodeURIComponent(g.id)}&bot=${encodeURIComponent(g.bot)}`);
     };
     const leave = () => {
         setGame(null);
-        try {
-            history.replaceState(null, '', '#/play');
-        } catch {
-            // nothing to undo
-        }
+        address('#/play');
     };
     return game ? <Table key={game.id} {...game} onLeave={leave} /> : <StartScreen onStart={begin} />;
 }
 
+const RANDOM = 'random';
+
 function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: string }) => void }) {
+    const table = useContext(TableContext);
     const [opts, setOpts] = useState<TableOptions | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [bot, setBot] = useState('');
@@ -49,19 +56,19 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
     const [botDeck, setBotDeck] = useState('');
     const [busy, setBusy] = useState(false);
     useEffect(() => {
-        tableOptions().then((o) => {
+        table.options().then((o) => {
             setOpts(o);
             setBot(o.bots[0] ?? '');
             setDeck(o.decks.find((d) => d.name !== o.botDeck)?.name ?? o.decks[0]?.name ?? '');
             setBotDeck(o.botDeck);
         }, (e) => setError(String(e.message ?? e)));
-    }, []);
+    }, [table]);
     const leaderOf = (name: string) => opts?.decks.find((d) => d.name === name);
     const go = async () => {
         setBusy(true);
         setError(null);
         try {
-            const g = await startGame(bot, deck, botDeck);
+            const g = await table.start(bot, deck, botDeck);
             onStart({ ...g, bot });
         } catch (e) {
             setError(String((e as Error).message ?? e));
@@ -69,7 +76,7 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
         }
     };
     if (error && !opts) {
-        return <div className="p-8 max-w-xl text-dim">No table here: {error}. Start one with <code className="num">node bot/table/serve.js</code> in the arena repo.</div>;
+        return <div className="p-8 max-w-xl text-dim">No table here: {error}.{table.missing ? ` ${table.missing}` : ''}</div>;
     }
     if (!opts) {
         return <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Finding the table…</div>;
@@ -80,6 +87,7 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
             <div className="flex flex-col gap-2 min-w-0">
                 <label htmlFor={id} className="text-xs uppercase tracking-[0.12em] text-dim">{label}</label>
                 <select id={id} className="play-select" value={value} onChange={(e) => set(e.target.value)}>
+                    {seat !== 'p1' && <option value={RANDOM}>Random: one of the {opts.decks.length} lists</option>}
                     {opts.decks.map((x) => <option key={x.name} value={x.name}>{x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
                 </select>
                 {d && <div className="flex gap-2 items-end" style={{ '--seat': `var(--color-${seat})` } as CSSProperties}>
@@ -94,14 +102,21 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
             <header className="flex flex-col gap-2">
                 <span className="text-xs uppercase tracking-[0.16em] text-gold font-mono">Play mode</span>
                 <h1 className="font-display text-3xl font-bold">Play against a bot</h1>
-                <p className="text-dim max-w-xl">You sit at seat 1 with the real rules engine. The bot sees only what its seat sees: your hand and both decks stay hidden from it. Every game is saved as a replay.</p>
+                <p className="text-dim max-w-xl">{table.note ?? 'You sit at seat 1 with the real rules engine. The bot sees only what its seat sees: your hand and both decks stay hidden from it. Every game is saved as a replay.'}</p>
             </header>
-            <div className="flex flex-col gap-2 max-w-sm">
-                <label htmlFor="play-bot" className="text-xs uppercase tracking-[0.12em] text-dim">Opponent</label>
-                <select id="play-bot" className="play-select" value={bot} onChange={(e) => setBot(e.target.value)}>
-                    {opts.bots.map((b) => <option key={b} value={b}>{b}</option>)}
-                </select>
-            </div>
+            {opts.bots.length === 1 ? (
+                <div className="flex flex-col gap-1 max-w-sm">
+                    <span className="text-xs uppercase tracking-[0.12em] text-dim">Opponent</span>
+                    <span className="font-display font-semibold">{opts.bots[0]}</span>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-2 max-w-sm">
+                    <label htmlFor="play-bot" className="text-xs uppercase tracking-[0.12em] text-dim">Opponent</label>
+                    <select id="play-bot" className="play-select" value={bot} onChange={(e) => setBot(e.target.value)}>
+                        {opts.bots.map((b) => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                </div>
+            )}
             <div className="grid gap-6 sm:grid-cols-2">
                 {pickDeck('Your deck', deck, setDeck, 'p1', 'play-deck')}
                 {pickDeck("The bot's deck", botDeck, setBotDeck, 'p2', 'play-bot-deck')}
@@ -119,6 +134,7 @@ interface Shown { prev: Snapshot | null; cur: Snapshot; n: number }
 const BOT_MOVE_MS = 550;
 
 function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
+    const table = useContext(TableContext);
     const settings = useMemo(() => createSettingsStore(null, { perspective: seat }), [seat]);
     const [hello, setHello] = useState<HelloMsg | null>(null);
     const [shown, setShown] = useState<Shown | null>(null);
@@ -173,10 +189,10 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         next();
     }, [seat]);
 
-    useEffect(() => follow(id, (m) => {
+    useEffect(() => table.follow(id, (m) => {
         queue.current.push(m);
         pump();
-    }, setDown), [id, pump]);
+    }, setDown), [table, id, pump]);
 
     const act = useCallback(async (a: Action, split?: { id: string; amount: number }[]) => {
         if (!decide || sending) {
@@ -186,14 +202,14 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         setProblem(null);
         try {
             const seq = decide.seq;
-            await sendAct(id, { t: 'act', seq, i: a.i, ...(split ? { split } : {}) });
+            await table.act(id, { t: 'act', seq, i: a.i, ...(split ? { split } : {}) });
             // the next decision may already be here (it can arrive before this answer's reply does)
             setDecide((d) => (d && d.seq === seq ? null : d));
         } catch (e) {
             setProblem(String((e as Error).message ?? e));
             setSending(false);
         }
-    }, [decide, sending, id]);
+    }, [decide, sending, id, table]);
 
     const cur = shown?.cur ?? null;
     const ids = useMemo(() => {
@@ -243,7 +259,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     {cur && <span className="text-dim num">Round {cur.round} · {cur.phase}</span>}
                     {down && !end && <span className="text-p2">Reconnecting…</span>}
                     <span className="ml-auto flex gap-2">
-                        {!end && <button className="play-btn ghost" onClick={() => void concede(id)} title="Give up this game"><Flag size={14} /> Concede</button>}
+                        {!end && <button className="play-btn ghost" onClick={() => void table.concede(id)} title="Give up this game"><Flag size={14} /> Concede</button>}
                     </span>
                 </div>
                 <div className="flex-1 flex flex-col lg:flex-row min-h-0">
@@ -436,6 +452,9 @@ function SplitPanel({ action, d, board, sending, onAct }: { action: Action; d: D
 }
 
 function EndCard({ end, seat, bot, id, onLeave }: { end: EndMsg; seat: Seat; bot: string; id: string; onLeave: () => void }) {
+    const table = useContext(TableContext);
+    const watch = table.watch(id);
+    const download = end.replay ? table.replayUrl(id) : null;
     const won = end.winner === seat;
     const head = end.conceded ? 'You conceded' : won ? 'You won' : end.winner ? `${bot} won` : 'No winner';
     const detail = end.outcome === 'won' ? `Round ${end.round}, ${end.steps} moves.` : end.outcome === 'ERROR' && !end.conceded ? `The game stopped: ${end.error ?? 'an error'}.` : end.outcome === 'STEP_CAP' ? 'The game ran out of moves.' : `Round ${end.round}.`;
@@ -446,8 +465,9 @@ function EndCard({ end, seat, bot, id, onLeave }: { end: EndMsg; seat: Seat; bot
                 <span className="text-dim text-sm">{detail}</span>
                 <div className="flex flex-wrap gap-2">
                     <button className="play-btn primary" onClick={onLeave}><Play size={14} /> Play again</button>
-                    <a className="play-btn" href={`#/t/table/g/${encodeURIComponent(id)}`}>Watch the replay</a>
-                    {end.replay && <a className="play-btn ghost" href={replayUrl(id)} download={`${id}.jsonl`}>Download replay</a>}
+                    {typeof watch === 'string' && <a className="play-btn" href={watch}>Watch the replay</a>}
+                    {typeof watch === 'function' && <button className="play-btn" onClick={watch}>Watch the replay</button>}
+                    {download && <a className="play-btn ghost" href={download} download={`${id}.jsonl`}>Download replay</a>}
                 </div>
             </div>
         </div>
