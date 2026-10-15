@@ -1,5 +1,5 @@
-# Tests and builds Holotable. The repo is private, so every minute here is paid: one job, no matrix, and pull requests
-# cancel their own superseded runs.
+# Tests and builds Holotable: one job, no matrix, and pull requests cancel their own superseded runs. The repo is
+# public, so these runs are free; keep them lean anyway.
 name: CI
 on:
   push:
