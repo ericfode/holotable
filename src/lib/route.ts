@@ -6,6 +6,7 @@ export type Route =
     | { page: 'tournament'; tid: string; g: string | null }
     | { page: 'game'; tid: string; gid: string; step: number }
     | { page: 'effects' }
+    | { page: 'play' }
     | { page: 'icons'; tid: string | null; gid: string | null };
 
 export function parseRoute(hash: string): Route {
@@ -14,6 +15,9 @@ export function parseRoute(hash: string): Route {
     const q = new URLSearchParams(query);
     if (parts[0] === 'effects') {
         return { page: 'effects' };
+    }
+    if (parts[0] === 'play') {
+        return { page: 'play' };
     }
     if (parts[0] === 'icons') {
         return { page: 'icons', tid: q.get('t'), gid: q.get('g') };

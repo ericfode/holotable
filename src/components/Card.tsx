@@ -1,10 +1,11 @@
-import { useState, type CSSProperties, type FocusEvent, type MouseEvent, type ReactNode } from 'react';
+import { useContext, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { cardImageUrl, tileLook } from '../lib/cards';
 import { isToken } from '../lib/cardText';
 import { useSettings } from '../lib/settings';
 import type { CardRef, Seat, UnitRef, UpgradeRef } from '../data/types';
 import { rowColor } from '../data/terms';
 import { digitsOf, unitText } from '../data/format';
+import { PickContext } from '../play/pick';
 
 /** Leader fronts and bases are printed landscape ('wide'); everything else, a deployed leader included, is portrait ('tall'). */
 export type CardShape = 'tall' | 'wide';
@@ -189,6 +190,9 @@ function upgradeTags(ups: UpgradeRef[], crowded = false) {
 export function Card({ card, size = 'md', shape = 'tall', back = false, unit, controllerSeat, detailedEffects = false, effectIdentity = true, exhausted = false, note, kind = 'unit', hpLeft, width, value, leader = false, face, onFocus, onLeave }: Props) {
     const art = useSettings((s) => s.art);
     useSettings((s) => s.artVersion);
+    // play mode: a card that is a legal click glows and answers the click
+    const picker = useContext(PickContext);
+    const pickState = picker && card.id ? picker.state(card.id) : null;
     const [failed, setFailed] = useState<string | null>(null);
     // an image whose orientation doesn't match the box (art data can disagree with the card type) is fitted whole, not cropped
     const [mismatch, setMismatch] = useState<string | null>(null);
@@ -224,7 +228,20 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     const cap = size !== 'sm' ? unit?.cap ?? [] : [];
     // tokens (Battle Droid, Shield…) have no set number; a text face that says "Token unit" makes the tag redundant
     const token = (unit?.t === 1 || isToken(card)) && (showImg || !face);
-    const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : ''].filter(Boolean).join(' ');
+    const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : '', pickState === 'pick' ? 'pickable' : pickState === 'picked' ? 'picked' : ''].filter(Boolean).join(' ');
+    const pickProps = pickState
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            onClick: () => picker!.pick(card.id!),
+            onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    picker!.pick(card.id!);
+                }
+            }
+        }
+        : {};
     const style = {
         ...(width ? { '--w': `${width}px` } : {}),
         // the glow: the card's score colour, stronger the closer it is to the most valuable unit on the table
@@ -234,7 +251,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
         } : {})
     } as CSSProperties;
     return (
-        <div className={cls} style={style} title={card.n} {...focus}
+        <div className={cls} style={style} title={card.n} {...focus} {...pickProps}
             data-effect-card={effectIdentity ? card.n : undefined} data-effect-code={effectIdentity ? card.s ?? undefined : undefined} data-effect-id={effectIdentity ? card.id : undefined} data-effect-base={kind === 'base' ? '' : undefined} data-effect-zone={kind === 'leader' ? 'leader' : undefined}
             aria-label={(leader ? 'Leader ' : '') + card.n + (unit ? `, ${unit.p} power, ${hp} HP left${unit.d > 0 ? ` (${unit.d} damage)` : ''}` : '') + (unit?.sn ? ', Sentinel' : '') + (unit?.cap?.length ? `, holds captured ${unit.cap.map((c) => c.n).join(', ')}` : '') + (exhausted ? ', exhausted' : '') + (value?.v != null ? `, worth ${fmtCardValue(value.v, value.digits)}` : '')}>
             {showImg ? (

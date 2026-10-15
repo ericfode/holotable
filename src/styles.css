@@ -1073,3 +1073,106 @@ input[type="range"].scrub {
 .card-status.generated-restriction { font-size:6px; line-height:1.1; white-space:nowrap; }
 
 .card-status.generated-sentinel { font-size:6px; line-height:1.1; white-space:nowrap; }
+
+/* Play mode (#/play): legal clicks glow green (good), cards a multi-select already holds glow gold; the prompt bar
+   sits under the board and the game-over card floats over it. */
+.card.pickable {
+    cursor: pointer;
+    box-shadow: 0 0 0 2px var(--color-good), 0 0 16px -2px color-mix(in oklab, var(--color-good) 75%, transparent), 0 6px 18px -8px #000c;
+}
+.card.pickable:hover,
+.card.pickable:focus-visible {
+    transform: translateY(-3px);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-good), 0 0 22px 0 color-mix(in oklab, var(--color-good) 80%, transparent), 0 6px 18px -8px #000c;
+}
+.card.picked {
+    box-shadow: 0 0 0 3px var(--color-gold), 0 0 18px -2px color-mix(in oklab, var(--color-gold) 80%, transparent), 0 6px 18px -8px #000c;
+}
+.card.picked.pickable {
+    cursor: pointer;
+}
+.play-select {
+    height: 34px;
+    padding-inline: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--color-line);
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-size: 14px;
+    min-width: 0;
+}
+.play-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 4px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-line);
+    background: var(--color-raise);
+    color: var(--color-fg);
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.play-btn:hover:not(:disabled) {
+    border-color: color-mix(in oklab, var(--color-good) 60%, var(--color-line));
+}
+.play-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+.play-btn.primary {
+    background: var(--color-good);
+    color: var(--color-ink);
+    border-color: transparent;
+    font-weight: 600;
+}
+.play-btn.ghost {
+    background: transparent;
+    color: var(--color-dim);
+}
+.play-btn.small {
+    min-height: 26px;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+.play-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--color-line);
+    background: var(--color-raise);
+    color: var(--color-fg);
+}
+.play-icon:disabled {
+    opacity: 0.4;
+}
+.play-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    border-top: 1px solid color-mix(in oklab, var(--color-good) 35%, var(--color-line));
+    background: color-mix(in oklab, var(--color-panel) 92%, transparent);
+    backdrop-filter: blur(10px);
+}
+.play-end {
+    position: fixed;
+    left: 50%;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 50;
+    width: min(520px, calc(100vw - 32px));
+    padding: 20px 22px;
+    border-radius: 14px;
+    border: 1px solid var(--color-line);
+    background: var(--color-panel);
+    box-shadow: 0 24px 60px -20px #000;
+}

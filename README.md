@@ -53,6 +53,7 @@ Every path has a default inside this repo (gitignored) and an environment variab
 | `EVALS_DIR` | `evals/` | position evaluations, `/evals/<gameId>.json` |
 | `LENS_DIR` | `lens/` | lens files (scores), `/lens/<gameId>.json`, `/lens/<dir>/<gameId>.json`, `/lens/evaluators.json` |
 | `CARD_TEXT` | `/mnt/project-files/viewer-kit/card-text.json` when it exists | printed card data at `/card-text.json`; `CARD_TEXT=` turns it off |
+| `TABLE_URL` | `http://127.0.0.1:8790` | the table play mode talks to (`/table/api`, the arena's `bot/table/serve.js`) |
 | `ATLAS_KIT` | `/mnt/project-files/meta/kit/atlas-kit.js` | the Strategy Atlas kit, built into the app and the kit (Atlas spots). It belongs to the arena (`meta/atlas-kit.js`); with no file the build warns and draws no spots. |
 
 ### Without real games
@@ -103,6 +104,13 @@ Who embeds it:
 
 ## What's in it
 
+- **Play mode** (`#/play`, also in the navigation): a person plays a bot on the replay board, drawn from their seat (the
+  bot's hand face down). Every legal move is a glowing card, a button in the prompt bar under the board, or an entry
+  in **All moves**; damage splits get a stepper per target, long menus (name a card) a search box. The game runs at a
+  table, the arena's `bot/table/serve.js`, which seats the person as one more protocol v2 client and checks every
+  answer again, so the person sees only their seat and a slip never loses the game. The dev server sends `/table/api`
+  to `TABLE_URL` (default `http://127.0.0.1:8790`); `serve.js --site dist` serves a built Holotable and the table from
+  one address. Code: `src/pages/PlayPage.tsx`, `src/play/` (messages, client, which cards can be clicked).
 - **Card effects** (`#/effects`, also in the navigation): a growing catalogue of bespoke animations. Select a card, replay it, or play the collection on a clearly labeled staged board. Modal examples name their choices; shared ability filters and a visual legend explain the mechanics. The [batch ledger](docs/card-animation-batches.md) distinguishes authored scenes from independently accepted examples and the remaining imported catalogue.
 - **Frame inspection**: the slider and Anticipation / Impact / Outcome / Settle buttons pause the same Anime.js timeline used in playback. **Final board** shows the persistent result with no overlay. Deep-link with `#/effects?card=superlaser-blast&progress=46` (percent). Change of Heart and Sneak Attack also have a separately selectable **Regroup begins** example (`&stage=regroup-start`); playing their immediate scene does not advance to regroup automatically. Examples declare targets, prerequisites, payments, and before/after snapshots independently of recorded games.
 - **Sound effects**: enable Sound in the showcase or replay viewer, then adjust the volume. Twenty original procedural scores combine card signatures with shared ability sounds. Web Audio starts only from the enable gesture; muting, scrubbing, changing cues, leaving the page, and hiding the tab cancel the active sound. Held inspection frames are silent. Sound starts off for each viewer session. See [the sound language](docs/card-sound-language.md).
