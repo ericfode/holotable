@@ -156,3 +156,12 @@ With the showcase running and Playwright available, `node scripts/capture-effect
 `node scripts/card-animation-inventory.cjs` writes the planned animation inventory and batches from the card data
 (`--scope imported`, the default). `--scope bot --arena ../swu_bot` limits it to the cards the arena's bots can play,
 using the arena's `Env` (its engine must be built).
+
+## License and credits
+
+The code is MIT licensed (`LICENSE`). This is an unofficial fan project. It is not made, endorsed or supported by Fantasy Flight Games, Asmodee, Disney or
+Lucasfilm. Star Wars: Unlimited and its card names, card text and art belong to their owners.
+
+- Card art is loaded at view time from swu-db.com's image CDN and is not part of this repository.
+- Tests read card data from [forceteki](https://github.com/SWU-Karabast/forceteki) (MIT), Karabast's engine, as the
+  `forceteki/` submodule.
