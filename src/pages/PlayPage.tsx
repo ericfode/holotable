@@ -5,6 +5,7 @@ import { Card, type Focus } from '../components/Card';
 import { FloatingZoom } from '../components/CardZoom';
 import { cardById, trackUnits } from '../data/derive';
 import type { CardRef, Seat, Snapshot } from '../data/types';
+import { cardTextBySet } from '../lib/cardText';
 import { createSettingsStore, SettingsProvider } from '../lib/settings';
 import { hashParam } from '../lib/route';
 import { PickContext, type Pick } from '../play/pick';
@@ -82,8 +83,8 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
                     {opts.decks.map((x) => <option key={x.name} value={x.name}>{x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
                 </select>
                 {d && <div className="flex gap-2 items-end" style={{ '--seat': `var(--color-${seat})` } as CSSProperties}>
-                    <Card card={{ id: `${id}-leader`, n: d.name, s: d.leader }} shape="wide" kind="leader" width={120} />
-                    <Card card={{ id: `${id}-base`, n: d.name, s: d.base }} shape="wide" kind="base" width={92} />
+                    <Card card={{ id: `${id}-leader`, n: cardTextBySet(d.leader)?.t ?? d.leader, s: d.leader }} shape="wide" kind="leader" width={120} />
+                    <Card card={{ id: `${id}-base`, n: cardTextBySet(d.base)?.t ?? d.base, s: d.base }} shape="wide" kind="base" width={92} />
                 </div>}
             </div>
         );
