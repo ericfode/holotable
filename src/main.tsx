@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage';
 import { TournamentPage } from './pages/TournamentPage';
 import { IconsPage } from './pages/IconsPage';
 import { EffectsPage } from './pages/EffectsPage';
+import { PlayPage } from './pages/PlayPage';
 import { useRoute } from './lib/route';
 import { loadArtPack } from './lib/cards';
 import { loadCardText } from './lib/cardText';
@@ -32,6 +33,7 @@ function App() {
                 {route.page === 'tournament' && <TournamentPage key={route.tid} tid={route.tid} />}
                 {route.page === 'icons' && <IconsPage tid={route.tid} gid={route.gid} />}
                 {route.page === 'effects' && <EffectsPage key={window.location.hash} />}
+                {route.page === 'play' && <PlayPage />}
                 {route.page === 'game' && <GamePage key={`${route.tid}/${route.gid}`} tid={route.tid} gid={route.gid} startStep={route.step} />}
             </Shell>
         </MotionConfig>

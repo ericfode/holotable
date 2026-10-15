@@ -113,7 +113,8 @@ function replays(): Plugin {
 export default defineConfig(({ mode }) => ({
     plugins: [react(), tailwindcss(), atlasKit(), effectReviewManifest(), mode === 'static' ? viteSingleFile() : replays()],
     base: './',
-    server: { port: 5190 },
+    // play mode (#/play) talks to a table (the arena's bot/table/serve.js) under /table/api; TABLE_URL says where it runs
+    server: { port: 5190, proxy: { '/table/api': process.env.TABLE_URL ?? 'http://127.0.0.1:8790' } },
     preview: { port: 5190 },
     build: { outDir: mode === 'static' ? 'dist-static' : 'dist', chunkSizeWarningLimit: 4000 }
 }));

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Command } from 'cmdk';
 import { AnimatePresence, motion } from 'motion/react';
-import { Command as CmdIcon, Gamepad2, Image, LayoutGrid, Search, Sparkles } from 'lucide-react';
+import { Command as CmdIcon, Gamepad2, Image, LayoutGrid, Search, Sparkles, Swords } from 'lucide-react';
 import { dataSource } from '../data/source';
 import type { TournamentIndex, TournamentSummary } from '../data/types';
 import { hrefGame, hrefHome, hrefTournament, type Route } from '../lib/route';
@@ -90,6 +90,8 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
         crumbs.push({ label: 'Action icons', href: '#/icons' });
     } else if (route.page === 'effects') {
         crumbs.push({ label: 'Card effects', href: '#/effects' });
+    } else if (route.page === 'play') {
+        crumbs.push({ label: 'Play', href: '#/play' });
     } else if (route.page !== 'home') {
         crumbs.push({ label: route.tid, href: hrefTournament(route.tid) });
     }
@@ -107,7 +109,8 @@ export function Shell({ route, children }: { route: Route; children: ReactNode }
                 <ol className="hidden sm:flex items-center gap-2 text-sm text-dim min-w-0">
                     {crumbs.map((c) => <li key={c.href} className="truncate before:content-['/'] before:mr-2 before:text-faint"><a href={c.href} className="hover:text-fg">{c.label}</a></li>)}
                 </ol>
-                <a href="#/effects" className="btn ml-auto !h-8 text-dim" aria-label="Card effects" aria-current={route.page === 'effects' ? 'page' : undefined}><Sparkles size={14} /><span className="hidden sm:inline">Card effects</span></a>
+                <a href="#/play" className="btn ml-auto !h-8 text-dim" aria-label="Play against a bot" aria-current={route.page === 'play' ? 'page' : undefined}><Swords size={14} /><span className="hidden sm:inline">Play</span></a>
+                <a href="#/effects" className="btn !h-8 text-dim" aria-label="Card effects" aria-current={route.page === 'effects' ? 'page' : undefined}><Sparkles size={14} /><span className="hidden sm:inline">Card effects</span></a>
                 <button className="btn !h-8 text-dim" onClick={() => setOpen(true)} aria-label="Open command palette">
                     <Search size={14} /><span className="hidden sm:inline">Jump to…</span>
                     <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[11px] text-faint num"><CmdIcon size={11} />K</kbd>
