@@ -79,7 +79,10 @@ when big) published as `art-pack.json` beside the page.
 ## The viewer kit
 
 `npm run build:kit` builds `src/kit/index.tsx` into one self-contained bundle (React and styles included, rendered into
-a shadow root): `dist-kit/swu-viewer-kit.js` (global `SWUViewer`) and `dist-kit/swu-viewer-kit.mjs`.
+a shadow root): `dist-kit/swu-viewer-kit.js` (global `SWUViewer`) and `dist-kit/swu-viewer-kit.mjs`. It also writes
+`dist-kit/swu-viewer-kit.licenses.txt`: every npm package bundled into the kit, its version and license, and the license
+texts it ships (`vite.licenses.ts`). The first line of each kit file names it, so a page that serves the kit serves this
+file beside it.
 
 ```html
 <div id="game"></div>
@@ -94,8 +97,9 @@ one-file demo page next to the bundle.
 Who embeds it:
 
 - **The arena** (`ericfode/swu_bot`): the SWU Arena app (`app/build.mjs` inlines `swu-viewer-kit.js`) and the arena
-  window (`bot/arena/window.js` serves it; `ARENA_KIT` names the file). Its Docker image builds the kit today from its
-  own `studio/` copy; it should build it from this repo instead, with `ATLAS_KIT` pointing at its `meta/atlas-kit.js`.
+  window (`bot/arena/window.js` serves it as `/kit.js`; `ARENA_KIT` names the file). Both use the prebuilt copy in the
+  arena's `vendor/holotable/`, built from a commit of this repo with `ATLAS_KIT` pointing at its `meta/atlas-kit.js`
+  (the arena's `vendor/refresh.js`).
 - **Holocron** (`ericfode/holocron`, the bots): the Karabast live view (`karabast/live-view.js --kit <dir>`), the
   analysis report (`lab/analysis/report.js --kit`) and the meta page (`lab/meta/build-page.js`). They take a built
   kit file, by default the shared copy in `/mnt/project-files/viewer-kit/`.
@@ -141,6 +145,7 @@ Who embeds it:
 - `fixtures/` — the hand-made tournaments (`generate.mjs`), static-build staging (`stage.mjs`) and lens test cases (`lens-cases/make.mjs`).
 - `docs/` — the replay format and its JSON schemas, the card animation and sound languages, the batch ledger and the per-batch specs and reviews.
 - `skills/swu-card-animation/` (and `.agents/skills/` for Codex) — the animation authoring and review workflow.
+- `vite.licenses.ts` — writes the kit's third-party license list (`swu-viewer-kit.licenses.txt`) from the modules each kit file bundles.
 - `vite.atlas.ts` — `virtual:atlas-kit`: the Atlas kit (`ATLAS_KIT`) as a module, without touching `window.AtlasKit`; no file means no spots.
 - `vite.config.ts` — includes a small plugin that serves `/api/tournaments` and `/replays/*` as [docs/replay-format.md](docs/replay-format.md) describes.
 - `forceteki/` — the engine submodule, read only.
