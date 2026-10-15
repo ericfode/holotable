@@ -30,8 +30,8 @@ npm run build:kit    # dist-kit/swu-viewer-kit.js and .mjs
 npm run dev          # http://localhost:5190; REPLAYS_DIR, EVALS_DIR, LENS_DIR, CARD_TEXT, ATLAS_KIT override the data
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same checks on pushes to main and on pull requests. The repo is private, so CI
-spends paid minutes: keep the workflow lean and do not add triggers or matrix jobs without asking.
+CI (`.github/workflows/ci.yml`) runs the same checks on pushes to main and on pull requests. The repo is public, so CI
+runs are free, but keep the workflow lean: do not add triggers or matrix jobs without asking.
 
 ## Rules
 
