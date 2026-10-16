@@ -157,10 +157,12 @@ test('no decision, no keys', () => {
     assert.equal(k.primary, null);
 });
 
-test('hotkeys stay out of text fields and menus, not out of checkboxes', () => {
+test('hotkeys stay out of text fields, sliders and menus, not out of checkboxes', () => {
     const el = (tagName, extra = {}) => ({ tagName, isContentEditable: false, closest: () => null, ...extra });
     assert.equal(isTyping(el('INPUT', { type: 'text' })), true);
     assert.equal(isTyping(el('INPUT', { type: 'checkbox' })), false);
+    assert.equal(isTyping(el('INPUT', { type: 'range' })), true, 'a slider moves with the arrow keys');
+    assert.equal(isTyping(el('INPUT', { type: 'radio' })), true);
     assert.equal(isTyping(el('SELECT')), true);
     assert.equal(isTyping(el('DIV', { isContentEditable: true })), true);
     assert.equal(isTyping(el('DIV', { closest: () => ({}) })), true);

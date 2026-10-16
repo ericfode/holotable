@@ -229,7 +229,10 @@ export function playKeys(decide: DecideMsg | null, board: Snapshot | null, you: 
 /** Controls that Space and Enter press themselves when they have focus: a hotkey leaves those two keys to them. */
 export const CONTROL = 'button,a[href],input,select,textarea,summary,[role="button"],[role="checkbox"],[role="switch"],[role="tab"]';
 
-/** True when a key press belongs to a text field, a menu or a list box, so no hotkey may take it. */
+/**
+ * True when a key press belongs to the focused element, so no hotkey may take it: a text field, a slider or radio
+ * button (they move with the arrow keys, Home and End), a menu or a list box.
+ */
 export function isTyping(target: EventTarget | null): boolean {
     const el = target as (HTMLElement & { type?: string }) | null;
     if (!el || typeof el !== 'object' || !('tagName' in el)) {
@@ -240,10 +243,10 @@ export function isTyping(target: EventTarget | null): boolean {
         return true;
     }
     if (tag === 'INPUT') {
-        return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color'].includes(String(el.type ?? 'text').toLowerCase());
+        return !['checkbox', 'button', 'submit', 'reset', 'color'].includes(String(el.type ?? 'text').toLowerCase());
     }
     if (el.isContentEditable) {
         return true;
     }
-    return !!el.closest?.('[role="listbox"],[role="combobox"],[role="textbox"],[role="menu"]');
+    return !!el.closest?.('[role="listbox"],[role="combobox"],[role="textbox"],[role="menu"],[role="slider"],[role="spinbutton"],[role="radiogroup"]');
 }
