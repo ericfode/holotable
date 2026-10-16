@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import { Flag, Loader2, Minus, Play, Plus, RotateCcw } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Flag, Loader2, Minus, Play, Plus, RotateCcw, Send, Undo2 } from 'lucide-react';
 import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
 import { FloatingZoom } from '../components/CardZoom';
@@ -9,12 +10,13 @@ import { cardById, trackUnits } from '../data/derive';
 import type { CardRef, Seat, Snapshot } from '../data/types';
 import { cardTextBySet } from '../lib/cardText';
 import { createSettingsStore, SettingsProvider } from '../lib/settings';
+import { byTouch } from '../lib/touch';
 import { hashParam } from '../lib/route';
 import { PickContext, type Pick } from '../play/pick';
 import { TableContext, type DeckOption, type TableOptions } from '../play/client';
 import { firstMode, startModes, type StartMode } from '../play/modes';
 import { OpponentPicker } from '../play/OpponentPicker';
-import { endText, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
+import { endText, moveText, moveVerb, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
 import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../play/StartModes';
 
 /**
@@ -23,6 +25,11 @@ import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../
  * "All moves", so no prompt can leave the person stuck. The table checks every answer again. The table is the
  * TableContext's (play/client.ts): the HTTP table by default, or the host page's (the viewer kit's mountPlay), which
  * may also pair the person with another person (the open-tables start screen) and add decks.
+ *
+ * The prompt bar sits between the two sides of the board, where the eyes are, and docks to the top or bottom edge of
+ * the window while the middle of the board is scrolled away. On a touch screen a tap opens a card with its moves as
+ * buttons (it never plays the card by itself), and a move made by touch waits TAKE_BACK_MS with an Undo button before
+ * it goes to the table: the table cannot take a move back once it has it.
  */
 export function PlayPage() {
     const table = useContext(TableContext);
@@ -157,8 +164,13 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
 interface Shown { prev: Snapshot | null; cur: Snapshot; n: number }
 
 const BOT_MOVE_MS = 550;
+/** a move made by touch waits this long, with an Undo button, before it goes to the table */
+const TAKE_BACK_MS = 1500;
 /** after a new decision shows, keys wait this long before they act, so a key meant for the last one can't answer it */
 const ARM_MS = 250;
+
+/** A move made by touch, waiting TAKE_BACK_MS before it goes to the table (Undo drops it, the decision stays open). */
+interface Held { seq: number; a: Action; split?: { id: string; amount: number }[]; text: string }
 
 function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
     const table = useContext(TableContext);
@@ -170,15 +182,23 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [end, setEnd] = useState<EndMsg | null>(null);
     const [down, setDown] = useState(false);
     const [sending, setSending] = useState(false);
+    const [held, setHeld] = useState<Held | null>(null);
+    const heldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [problem, setProblem] = useState<string | null>(null);
     const [focus, setFocus] = useState<Focus | null>(null);
-    const unlook = useCallback(() => setFocus(null), []);
+    // the pointer or the keys let go of a card; a card a tap opened stays open until it is closed
+    const unlook = useCallback(() => setFocus((f) => (f?.touch ? f : null)), []);
+    const closeLook = useCallback(() => setFocus(null), []);
     const [help, setHelp] = useState(false);
     const [hints] = useKeyHints();
     const queue = useRef<TableMsg[]>([]);
     const pumping = useRef(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const splitApi = useRef<SplitApi | null>(null);
+    // the board's middle, where the prompt bar is drawn (a portal, so the memoised board doesn't redraw for the bar)
+    const [centerEl, setCenterEl] = useState<HTMLDivElement | null>(null);
+    const center = useMemo(() => <div className="play-center" ref={setCenterEl} />, []);
+    useDockTop(rootRef);
 
     // messages are shown in order; the bot's moves one at a time, so each one animates and can be read
     const pump = useCallback(() => {
@@ -226,14 +246,10 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         pump();
     }, setDown), [table, id, pump]);
 
-    const act = useCallback(async (a: Action, split?: { id: string; amount: number }[]) => {
-        if (!decide || sending) {
-            return;
-        }
+    const send = useCallback(async (seq: number, a: Action, split?: { id: string; amount: number }[]) => {
         setSending(true);
         setProblem(null);
         try {
-            const seq = decide.seq;
             await table.act(id, { t: 'act', seq, i: a.i, ...(split ? { split } : {}) });
             // the next decision may already be here (it can arrive before this answer's reply does)
             setDecide((d) => (d && d.seq === seq ? null : d));
@@ -241,7 +257,50 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
             setProblem(String((e as Error).message ?? e));
             setSending(false);
         }
-    }, [decide, sending, id, table]);
+    }, [id, table]);
+
+    /** Answer the decision; `hold` (a move made by touch) waits TAKE_BACK_MS first, with an Undo button. */
+    const act = useCallback((a: Action, split?: { id: string; amount: number }[], hold = false) => {
+        if (!decide || sending || held) {
+            return;
+        }
+        setFocus((f) => (f?.touch ? null : f));
+        if (!hold) {
+            void send(decide.seq, a, split);
+            return;
+        }
+        const h: Held = { seq: decide.seq, a, split, text: moveText(a, decide) };
+        setHeld(h);
+        heldTimer.current = setTimeout(() => {
+            heldTimer.current = null;
+            setHeld(null);
+            void send(h.seq, h.a, h.split);
+        }, TAKE_BACK_MS);
+    }, [decide, sending, held, send]);
+    // the bar's buttons, a split's Confirm and an opened card's moves: held when a finger pressed them
+    const tap = useCallback((a: Action, split?: { id: string; amount: number }[]) => act(a, split, byTouch()), [act]);
+    const undo = useCallback(() => {
+        if (heldTimer.current) {
+            clearTimeout(heldTimer.current);
+            heldTimer.current = null;
+        }
+        setHeld(null);
+    }, []);
+    const sendNow = useCallback(() => {
+        if (held) {
+            undo();
+            void send(held.seq, held.a, held.split);
+        }
+    }, [held, undo, send]);
+    // a game that ends (a concession, the other side leaving) drops a waiting move, and so does leaving the table
+    useEffect(() => {
+        if (end) {
+            undo();
+        }
+    }, [end, undo]);
+    useEffect(() => undo, [undo]);
+    // a new decision closes a card a tap opened: its moves were the last decision's
+    useEffect(() => setFocus((f) => (f?.touch ? null : f)), [decide?.seq]);
 
     const cur = shown?.cur ?? null;
     const ids = useMemo(() => {
@@ -278,18 +337,20 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         pick: (cid) => {
             const a = picks.get(cid);
             if (a) {
-                void act(a);
+                act(a);
             } else if (splitIds.has(cid)) {
                 splitApi.current?.add(cid);
             }
         },
         keyOf: (cid) => (hints ? keys.card.get(cid) ?? null : null),
-        keyReady: () => performance.now() >= armed.current
+        keyReady: () => performance.now() >= armed.current,
+        // one more on a split target: the split panel takes it back, so a tap places it at once
+        instant: (cid) => !picks.has(cid) && splitIds.has(cid)
     }), [picks, selected, splitIds, act, hints, keys]);
 
     // the page's keys while this table is on screen and nothing is being typed
-    const now = useRef({ keys, decide, sending, act, pick, end, help });
-    now.current = { keys, decide, sending, act, pick, end, help };
+    const now = useRef({ keys, decide, sending, act, pick, end, help, held, undo, sendNow });
+    now.current = { keys, decide, sending, act, pick, end, help, held, undo, sendNow };
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             const s = now.current;
@@ -304,6 +365,19 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 setHelp((h) => !h);
                 return;
             }
+            // a move waiting to go: Esc or Backspace takes it back, Space or Enter sends it now, nothing else acts
+            if (s.held && !s.help) {
+                if (e.key === 'Escape' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    s.undo();
+                } else if ((e.key === ' ' || e.key === 'Enter') && !target?.closest?.(CONTROL)) {
+                    e.preventDefault();
+                    if (!e.repeat) {
+                        s.sendNow();
+                    }
+                }
+                return;
+            }
             const ready = () => !e.repeat && !!s.decide && !s.sending && performance.now() >= armed.current;
             if (e.key === 'Escape') {
                 const active = (root.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement | null;
@@ -312,7 +386,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 } else if (active?.classList.contains('card') && root.contains(active)) {
                     active.blur();
                 } else if (s.keys.cancel && ready()) {
-                    void s.act(s.keys.cancel);
+                    s.act(s.keys.cancel);
                 }
                 return;
             }
@@ -337,7 +411,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     if (s.keys.split) {
                         splitApi.current?.confirm();
                     } else if (s.keys.primary) {
-                        void s.act(s.keys.primary);
+                        s.act(s.keys.primary);
                     }
                 }
                 return;
@@ -368,7 +442,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 root.querySelector<HTMLElement>(`.card[data-effect-id="${CSS.escape(t.id)}"]`)?.focus();
             } else if (ready()) {
                 if (t.kind === 'act') {
-                    void s.act(t.action);
+                    s.act(t.action);
                 } else {
                     s.pick.pick(t.id);
                 }
@@ -382,6 +456,8 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const youDeck = hello?.deck.metadata?.name;
     const botDeck = hello?.opponent.metadata?.name;
     const actor: Seat | null = end ? null : decide ? seat : seat === 'p1' ? 'p2' : 'p1';
+    const live = decide && !sending && !held;
+    const zoomKey = focus ? `${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}` : '';
 
     return (
         <SettingsProvider store={settings}>
@@ -402,9 +478,9 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 <div className="flex-1 flex flex-col lg:flex-row min-h-0">
                     <div className="flex-1 min-w-0 px-2 py-3">
                         {cur && ids ? (
-                            <PickContext.Provider value={decide && !sending ? pick : null}>
+                            <PickContext.Provider value={live ? pick : null}>
                                 <Board state={cur} prev={shown!.prev} ids={ids[ids.length - 1]} prevIds={shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
-                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} />
+                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} center={center} />
                             </PickContext.Provider>
                         ) : <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Shuffling…</div>}
                     </div>
@@ -415,16 +491,25 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                                 <li key={m.n} className="flex gap-2 min-w-0">
                                     <span className="num text-faint w-7 shrink-0 text-right">{m.n}</span>
                                     <span className="shrink-0 font-semibold" style={{ color: `var(--color-${m.seat})` }}>{names[m.seat]}</span>
-                                    <span className="text-dim truncate" title={m.label}>{moveText(m)}</span>
+                                    <span className="text-dim truncate" title={m.label}>{logText(m)}</span>
                                 </li>
                             ))}
                         </ol>
                     </aside>
                 </div>
                 {/* a new bar for each decision, so a button focused by a click can't take the next decision's Space */}
-                <PromptBar key={decide?.seq ?? 'wait'} decide={decide} sending={sending} problem={problem} board={cur} bot={bot} drawn={drawn} pick={pick} onAct={act} ended={!!end}
-                    keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} />
-                {focus && <FloatingZoom key={`${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}`} focus={focus} score={null} />}
+                {centerEl && cur && createPortal(
+                    <PromptBar key={decide?.seq ?? 'wait'} decide={decide} sending={sending} held={held} onUndo={undo} onSendNow={sendNow} problem={problem} board={cur} bot={bot} drawn={drawn}
+                        pick={pick} onAct={tap} ended={!!end} keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} />,
+                    centerEl
+                )}
+                {focus && (focus.touch
+                    ? (
+                        <FloatingZoom key={zoomKey} focus={focus} score={null} onClose={closeLook}>
+                            {decide && !end && <CardMoves id={focus.card.id ?? ''} decide={decide} pick={picks.get(focus.card.id ?? '')} disabled={!live} onAct={tap} />}
+                        </FloatingZoom>
+                    )
+                    : <FloatingZoom key={zoomKey} focus={focus} score={null} />)}
                 {end && <EndCard end={end} seat={seat} bot={bot} id={id} onLeave={onLeave} hints={hints} />}
                 {help && <KeyHelp mode="play" seat={seat} onClose={() => setHelp(false)} />}
             </div>
@@ -432,8 +517,57 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     );
 }
 
+/**
+ * How far down the page's own sticky header reaches (Holotable's nav, or the bar of the page around the kit), as
+ * --dock-top on the table, so the prompt bar docks under it rather than over it. Read at y = 1 in the window's middle,
+ * skipping the table itself (and the kit's host element, which stands for everything in its shadow root).
+ */
+function useDockTop(root: RefObject<HTMLElement | null>) {
+    useEffect(() => {
+        const el = root.current;
+        if (!el || typeof document.elementsFromPoint !== 'function') {
+            return;
+        }
+        const host = (el.getRootNode() as ShadowRoot).host ?? null;
+        const measure = () => {
+            let top = 0;
+            for (const hit of document.elementsFromPoint(window.innerWidth / 2, 1)) {
+                if (el.contains(hit) || (host && (hit === host || host.contains(hit)))) {
+                    continue;
+                }
+                for (let e: Element | null = hit; e && e !== document.body && !top; e = e.parentElement) {
+                    const pos = getComputedStyle(e).position;
+                    if (pos === 'sticky' || pos === 'fixed') {
+                        top = Math.max(0, Math.round(e.getBoundingClientRect().bottom));
+                    }
+                }
+                if (top) {
+                    break;
+                }
+            }
+            el.style.setProperty('--dock-top', `${top}px`);
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, [root]);
+}
+
+/** The moves of a card a tap opened: one button each, with the decision's words above them. */
+function CardMoves({ id, decide, pick, disabled, onAct }: { id: string; decide: DecideMsg; pick: Action | undefined; disabled: boolean; onAct: (a: Action) => void }) {
+    const moves = [...(pick ? [pick] : []), ...decide.actions.filter((a) => a.kind === 'perCardButton' && a.cardUuid === id)];
+    return (
+        <div className="flex flex-col gap-2 border-t border-line pt-2">
+            <span className="text-xs text-dim">{promptText(decide)}</span>
+            {moves.length > 0
+                ? <div className="flex flex-wrap gap-2">{moves.map((a) => <button key={a.i} className="play-btn primary" disabled={disabled} onClick={() => onAct(a)}>{moveVerb(a, decide)}</button>)}</div>
+                : <span className="text-xs text-faint">No move with this card now.</span>}
+        </div>
+    );
+}
+
 /** A move as a log line. */
-function moveText(m: Omit<MoveMsg, 'state'>): string {
+function logText(m: Omit<MoveMsg, 'state'>): string {
     if (m.kind === 'distribute' && m.split?.length) {
         return `split ${m.split.reduce((t, e) => t + e.amount, 0)}`;
     }
@@ -457,8 +591,12 @@ function drawnIds(s: Snapshot, you: Seat): Set<string> {
     return out;
 }
 
-function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook }: {
-    decide: DecideMsg | null; sending: boolean; problem: string | null; board: Snapshot | null; bot: string; drawn: Set<string>; pick: Pick;
+/**
+ * The decision, drawn between the two sides of the board: what is asked, the cards a prompt shows, a split, and the
+ * buttons. While a move made by touch waits to go, it shows that move with Undo instead.
+ */
+function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook }: {
+    decide: DecideMsg | null; sending: boolean; held: Held | null; onUndo: () => void; onSendNow: () => void; problem: string | null; board: Snapshot | null; bot: string; drawn: Set<string>; pick: Pick;
     onAct: (a: Action, split?: { id: string; amount: number }[]) => void; ended: boolean; keys: PlayKeys; hints: boolean; splitApi: RefObject<SplitApi | null>;
     /** a tray card shown enlarged (hovered, or focused with ⇧ + its key), and let go */
     onLook: (f: Focus | null) => void; onUnlook: () => void;
@@ -472,9 +610,23 @@ function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, e
     if (ended) {
         return null;
     }
+    // a waiting move shows over the decision, which stays mounted (hidden) so Undo finds a split or a search as it was
+    const strip = held && (
+        <div className="play-bar held" role="status" aria-label="Your move is about to go">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="flex flex-col min-w-0 flex-1">
+                    <span className="text-dim text-xs">Sending in a moment</span>
+                    <span className="font-display font-semibold text-[15px] truncate">{held.text}</span>
+                </span>
+                <button className="play-btn primary" onClick={onUndo}><Undo2 size={15} /> Undo{hints && <Kbd k="Escape" className="hint" />}</button>
+                <button className="play-btn ghost" onClick={onSendNow}><Send size={14} /> Send now</button>
+            </div>
+            <span className="held-clock" style={{ animationDuration: `${TAKE_BACK_MS}ms` }} aria-hidden="true" />
+        </div>
+    );
     if (!decide) {
-        return (
-            <div className="play-bar">
+        return strip || (
+            <div className="play-bar waiting">
                 <span className="flex items-center gap-2 text-dim">{sending ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : <><Loader2 size={15} className="animate-spin" /> {bot} is thinking…</>}</span>
             </div>
         );
@@ -488,46 +640,49 @@ function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, e
     const elsewhere = acts.filter((a) => a.kind === 'card' && (a.card?.id === 'hidden' || !drawn.has(a.card?.id ?? '')) && !trayIds.has(a.card?.id ?? ''));
     const glowing = acts.some((a) => a.kind === 'card' && a.card && drawn.has(a.card.id));
     return (
-        <div className="play-bar" role="region" aria-label="Your decision" data-seq={decide.seq}>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="font-display font-semibold text-[15px]">{promptText(decide)}</span>
-                {glowing && <span className="text-dim text-xs">Click a glowing card{hints ? ' or press its key' : ''}, or choose below.</span>}
-                {problem && <span className="text-p2 text-xs">{problem}</span>}
-            </div>
-            {tray.length > 0 && (
-                <div className="flex flex-wrap gap-3 items-start">
-                    {tray.map((c) => {
-                        const per = acts.filter((a) => a.kind === 'perCardButton' && a.cardUuid === c.id);
-                        return (
-                            <div key={c.id} className={`flex flex-col items-center gap-1 ${c.st === 'unselectable' || c.st === 'invalid' ? 'opacity-50' : ''}`}>
-                                <PickContext.Provider value={pick}>
-                                    <Card card={c} size="sm" kind="hand" onFocus={onLook} onLeave={onUnlook} />
-                                </PickContext.Provider>
-                                <span className="text-[11px] text-dim max-w-[6rem] truncate" title={c.n}>{c.n}</span>
-                                {per.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{a.label.split(':')[0]}{cap(a)}</button>)}
-                            </div>
-                        );
-                    })}
+        <>
+            {strip}
+            <div className="play-bar" role="region" aria-label="Your decision" data-seq={decide.seq} hidden={!!held}>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span className="font-display font-semibold text-[15px]">{promptText(decide)}</span>
+                    {glowing && <span className="text-dim text-xs">Tap or click a glowing card{hints ? <span className="keys-only"> or press its key</span> : ''}, or choose below.</span>}
+                    {problem && <span className="text-p2 text-xs">{problem}</span>}
                 </div>
-            )}
-            {dist && <SplitPanel key={decide.seq} action={dist} d={dist.distribute!} board={board} sending={sending} onAct={onAct} api={splitApi}
-                keyOf={(cid) => (hints ? keys.card.get(cid) ?? null : null)} hints={hints} />}
-            <div className="flex flex-wrap gap-2 items-center">
-                {elsewhere.map((a) => (
-                    <button key={a.i} className="play-btn" disabled={sending} onClick={() => onAct(a)} title={a.card?.zone ? `In ${zoneName(a.card.zone)}` : undefined}>
-                        {a.card?.id === 'hidden' ? 'A hidden card' : a.card?.n ?? a.label}{a.card?.zone ? <span className="text-faint text-xs ml-1">{zoneName(a.card.zone)}</span> : null}{cap(a)}
-                    </button>
-                ))}
-                {options.length > 0 && <Options options={options} sending={sending} onAct={onAct} cap={cap} />}
-                {buttons.map((a) => <button key={a.i} className={`play-btn${PRIMARY.test(a.label) ? ' primary' : ''}`} disabled={sending} onClick={() => onAct(a)}>{a.label}{cap(a)}</button>)}
-                <button className="play-btn ghost ml-auto" onClick={() => setAll((x) => !x)} aria-expanded={all}>{all ? 'Hide' : 'All'} moves ({acts.length})</button>
-            </div>
-            {all && (
-                <div className="flex flex-wrap gap-1.5 border-t border-line pt-2">
-                    {acts.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{actionText(a)}</button>)}
+                {tray.length > 0 && (
+                    <div className="flex flex-wrap gap-3 items-start">
+                        {tray.map((c) => {
+                            const per = acts.filter((a) => a.kind === 'perCardButton' && a.cardUuid === c.id);
+                            return (
+                                <div key={c.id} className={`flex flex-col items-center gap-1 ${c.st === 'unselectable' || c.st === 'invalid' ? 'opacity-50' : ''}`}>
+                                    <PickContext.Provider value={pick}>
+                                        <Card card={c} size="sm" kind="hand" onFocus={onLook} onLeave={onUnlook} />
+                                    </PickContext.Provider>
+                                    <span className="text-[11px] text-dim max-w-[6rem] truncate" title={c.n}>{c.n}</span>
+                                    {per.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{a.label.split(':')[0]}{cap(a)}</button>)}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+                {dist && <SplitPanel key={decide.seq} action={dist} d={dist.distribute!} board={board} sending={sending} onAct={onAct} api={splitApi}
+                    keyOf={(cid) => (hints ? keys.card.get(cid) ?? null : null)} hints={hints} />}
+                <div className="flex flex-wrap gap-2 items-center">
+                    {elsewhere.map((a) => (
+                        <button key={a.i} className="play-btn" disabled={sending} onClick={() => onAct(a)} title={a.card?.zone ? `In ${zoneName(a.card.zone)}` : undefined}>
+                            {a.card?.id === 'hidden' ? 'A hidden card' : a.card?.n ?? a.label}{a.card?.zone ? <span className="text-faint text-xs ml-1">{zoneName(a.card.zone)}</span> : null}{cap(a)}
+                        </button>
+                    ))}
+                    {options.length > 0 && <Options options={options} sending={sending} onAct={onAct} cap={cap} />}
+                    {buttons.map((a) => <button key={a.i} className={`play-btn${PRIMARY.test(a.label) ? ' primary' : ''}`} disabled={sending} onClick={() => onAct(a)}>{a.label}{cap(a)}</button>)}
+                    <button className="play-btn ghost ml-auto" onClick={() => setAll((x) => !x)} aria-expanded={all}>{all ? 'Hide' : 'All'} moves ({acts.length})</button>
                 </div>
-            )}
-        </div>
+                {all && (
+                    <div className="flex flex-wrap gap-1.5 border-t border-line pt-2">
+                        {acts.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{actionText(a)}</button>)}
+                    </div>
+                )}
+            </div>
+        </>
     );
 }
 

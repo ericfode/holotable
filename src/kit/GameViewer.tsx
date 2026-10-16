@@ -255,11 +255,22 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
         ro.observe(el);
         return () => ro.disconnect();
     }, []);
+    // a card a tap opened (touch screens) stays open until the person closes it; the pointer leaving a card hides only a hovered one
+    const tapped = useRef(false);
     const onCardFocus = useCallback((f: Focus | null) => {
+        tapped.current = !!f?.touch;
         setFocus(f);
         setHovering(!!f);
     }, []);
-    const onCardLeave = useCallback(() => setHovering(false), []);
+    const onCardLeave = useCallback(() => {
+        if (!tapped.current) {
+            setHovering(false);
+        }
+    }, []);
+    const closeTapped = useCallback(() => {
+        tapped.current = false;
+        setHovering(false);
+    }, []);
 
     // an annotated game opens on its evaluations and base HP, whenever its evals file arrives
     useEffect(() => {
@@ -716,7 +727,8 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
             </div>
             {keyHelp && <KeyHelp mode="replay" live={live} onClose={closeKeyHelp} />}
             <AnimatePresence>
-                {focus && hovering && !(full && beside) && <FloatingZoom key={`${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}`} focus={focus} score={valuesOn ? boardScore : null} />}
+                {focus && hovering && !(full && beside) && <FloatingZoom key={`${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}`} focus={focus} score={valuesOn ? boardScore : null}
+                    onClose={focus.touch ? closeTapped : undefined} />}
             </AnimatePresence>
         </div>
     );
