@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { BrainCircuit, Coins, Flag, Layers, Library, Skull, Sparkle } from 'lucide-react';
 import { Card, CardBack, CapturedPocket, regretTag, type CardValue, type Focus } from './Card';
@@ -43,6 +43,8 @@ interface BoardProps {
     reserveBaseProtection?: Record<Seat, boolean>;
     /** drawn between the two sides instead of the centre line (play mode: the decision, where the eyes are); keep it stable, the board is memoised */
     center?: ReactNode;
+    /** play mode: this seat's hand is a fan on a touch screen (Hand, useHandFan) */
+    fanHand?: Seat;
 }
 
 const spring = { type: 'spring', stiffness: 420, damping: 32 } as const;
@@ -365,7 +367,97 @@ function Hq({ seat, p, prev, bot, step, onFocus, onLeave, onHiLeader, hqRef, sl,
     );
 }
 
-function Hand({ seat, p, onFocus, onLeave, sl, animateChanges }: { seat: Seat; p: PlayerSnap; onFocus: (f: Focus | null) => void; onLeave?: () => void; sl: SeatLens | null; animateChanges: boolean }) {
+// a hand card's width (.hand-card)
+const HAND_CARD = 76;
+// a finger resting this long on the fan lifts the card under it, like a slide does
+const LIFT_MS = 220;
+
+/**
+ * The person's hand as a fan on a touch screen (play mode; the look is CSS for coarse pointers only): the cards overlap
+ * in one row, --step apart (measured to fit), and a finger sliding along the row lifts the card under it (`hot`), so
+ * the whole hand reads in one swipe. A tap still opens a card or makes its move; a slide or a rest ends in no click.
+ */
+function useHandFan(ref: RefObject<HTMLDivElement | null>, on: boolean, n: number) {
+    const [hot, setHot] = useState<number | null>(null);
+    const drag = useRef<{ x: number; lifted: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
+    const lifted = useRef(false);
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!on || !el) {
+            return;
+        }
+        const fit = () => {
+            const step = n > 1 ? Math.max(14, Math.min(HAND_CARD + 2, (el.clientWidth - HAND_CARD) / (n - 1))) : HAND_CARD;
+            el.style.setProperty('--step', `${step.toFixed(1)}px`);
+        };
+        fit();
+        const ro = new ResizeObserver(fit);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [ref, on, n]);
+    useLayoutEffect(() => setHot(null), [n]);
+    if (!on) {
+        return { hot: null, props: {} };
+    }
+    // the card under x: card k shows from k * step to (k + 1) * step, the last one whole
+    const under = (x: number) => {
+        const el = ref.current;
+        if (!el) {
+            return null;
+        }
+        const step = parseFloat(el.style.getPropertyValue('--step')) || HAND_CARD;
+        return Math.max(0, Math.min(n - 1, Math.floor((x - el.getBoundingClientRect().left) / step)));
+    };
+    const end = () => {
+        const d = drag.current;
+        if (d) {
+            clearTimeout(d.timer);
+            lifted.current = d.lifted;
+        }
+        drag.current = null;
+        setHot(null);
+    };
+    return {
+        hot,
+        props: {
+            onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+                if (e.pointerType !== 'touch') {
+                    return;
+                }
+                const x = e.clientX;
+                const d = { x, lifted: false, timer: setTimeout(() => {
+                    d.lifted = true;
+                    setHot(under(x));
+                }, LIFT_MS) };
+                drag.current = d;
+            },
+            onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
+                const d = drag.current;
+                if (!d || (!d.lifted && Math.abs(e.clientX - d.x) < 8)) {
+                    return;
+                }
+                clearTimeout(d.timer);
+                d.lifted = true;
+                setHot(under(e.clientX));
+            },
+            onPointerUp: end,
+            onPointerCancel: () => {
+                end();
+                lifted.current = false;
+            },
+            onClickCapture: (e: MouseEvent<HTMLDivElement>) => {
+                if (lifted.current) {
+                    lifted.current = false;
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            },
+            onContextMenu: (e: MouseEvent<HTMLDivElement>) => e.preventDefault()
+        }
+    };
+}
+
+function Hand({ seat, p, onFocus, onLeave, sl, animateChanges, fan = false }: { seat: Seat; p: PlayerSnap; onFocus: (f: Focus | null) => void; onLeave?: () => void; sl: SeatLens | null; animateChanges: boolean; fan?: boolean }) {
     const perspective = useSettings((s) => s.perspective);
     const visible = perspective === 'god' || perspective === seat;
     // hand cards all score the same; a per-card number only when they differ
@@ -373,18 +465,28 @@ function Hand({ seat, p, onFocus, onLeave, sl, animateChanges }: { seat: Seat; p
     const flat = !sl || (additive(sl) && sl.side.hand.every((v) => v === sl.side.hand[0]));
     const handTotal = sl ? sl.side.rows['side.hand'] ?? 0 : 0;
     const count = p.handCount ?? p.hand.length;
+    const cardsRef = useRef<HTMLDivElement>(null);
+    const n = p.hand.length;
+    const fanned = fan && visible;
+    const { hot, props: fanProps } = useHandFan(cardsRef, fanned, n);
     return (
-        <div className="hand" data-effect-zone="hand" aria-label={`${seat} hand, ${count} cards`}>
+        <div className={`hand${fanned ? ' fan' : ''}`} data-effect-zone="hand" aria-label={`${seat} hand, ${count} cards`}>
             <span className="hand-label">Hand · {count}{count !== p.hand.length ? ` (${p.hand.length} listed)` : ''}</span>
-            <div className="hand-cards">
+            <div className="hand-cards" ref={cardsRef} {...fanProps}>
                 <AnimatePresence initial={false} mode="popLayout">
                     {p.hand.map((c, i) => {
                         const v = valueOf(sl, 'hand', i);
                         const shown = v && flat ? { ...v, v: null } : v;
+                        const face = <>
+                            {visible ? <Card card={c} size="sm" kind="hand" onFocus={onFocus} onLeave={onLeave} note="In hand" value={shown} /> : <CardBack size="sm" value={shown} />}
+                            {visible && <span className="hand-name">{c.n}</span>}
+                        </>;
+                        // in a fan, each card leans out from the middle (--k: its place from the middle)
+                        const k = i - (n - 1) / 2;
                         return (
-                            <motion.div key={c.id ?? `${c.n}-${i}`} layout={animateChanges} className="hand-card" initial={animateChanges ? { opacity: 0, y: seat === 'p1' ? 20 : -20 } : false} animate={{ opacity: 1, y: 0 }} exit={animateChanges ? { opacity: 0, scale: 0.7 } : { opacity: 0, transition: { duration: 0 } }} transition={animateChanges ? spring : { duration: 0 }}>
-                                {visible ? <Card card={c} size="sm" kind="hand" onFocus={onFocus} onLeave={onLeave} note="In hand" value={shown} /> : <CardBack size="sm" value={shown} />}
-                                {visible && <span className="hand-name">{c.n}</span>}
+                            <motion.div key={c.id ?? `${c.n}-${i}`} layout={animateChanges} className={`hand-card${hot === i ? ' hot' : ''}`} initial={animateChanges ? { opacity: 0, y: seat === 'p1' ? 20 : -20 } : false} animate={{ opacity: 1, y: 0 }} exit={animateChanges ? { opacity: 0, scale: 0.7 } : { opacity: 0, transition: { duration: 0 } }} transition={animateChanges ? spring : { duration: 0 }}
+                                style={fanned ? { '--k': k, '--ka': Math.abs(k) } as CSSProperties : undefined}>
+                                {fanned ? <div className="fan-face">{face}</div> : face}
                             </motion.div>
                         );
                     })}
@@ -434,7 +536,7 @@ function Side({ seat, props, sl, spots }: { seat: Seat; props: BoardProps; sl: S
         <section className={`seat-${seat} half flex flex-col gap-1.5${actor === seat ? ' to-act' : ''}`} data-effect-seat={seat} aria-label={`${bots[seat]} (${seat})`}>
             {/* shown only when the container has room for ground | base | space: tells the layout which one CSS picked */}
             <span ref={probeRef} className="absolute size-0 hidden @2xl:block" aria-hidden="true" />
-            {seat === 'p2' ? <><Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} />{row}</> : <>{row}<Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} /></>}
+            {seat === 'p2' ? <><Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} fan={props.fanHand === seat} />{row}</> : <>{row}<Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} fan={props.fanHand === seat} /></>}
             <DiscardPermissions state={state} seat={seat} reserved={props.reserveDiscardPermissions?.[seat]} onFocus={onFocus} onLeave={onLeave} />
         </section>
     );

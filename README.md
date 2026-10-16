@@ -115,9 +115,17 @@ Who embeds it:
 - **Play mode** (`#/play`, also in the navigation): a person plays a bot on the replay board, drawn from their seat (the
   bot's hand face down). Every legal move is a glowing card, a button in the prompt bar, or an entry in **All moves**;
   damage splits get a stepper per target, long menus (name a card) a search box. The prompt bar sits between the two
-  sides of the board, and stays at the top or bottom edge of the window while you look at one side. On a touch screen a
-  tap opens a card with its moves as buttons (a tap outside, its X or Esc closes it), and a move made by touch waits
-  1.5 s with Undo and Send now before it goes to the table; a mouse click or a key sends at once. The game runs at a
+  sides of the board, and stays at the top or bottom edge of the window while you look at one side. Everywhere: a move
+  that would change nothing (the table's `noEffect` flag, or the engine's "(No effect)" choice) is grey and dashed and
+  says "No effect"; the card whose ability asks the question wears a gold ring, with the question in a bubble and
+  dashed lines to the cards that answer it; the bot's moves since yours are drawn on the board (an arrow from its card
+  to yours, a ring on any other card it used) and listed at the top of the bar; and a decision with only one answer
+  gives it after 2 s unless you press Stop ("Always ask" turns that off). On a touch screen each card with a move shows
+  it as an icon on the card (play, attack, use, choose); a tap on the icon makes the move, which waits 1.5 s as a
+  countdown ring on the icon (a tap on the ring, or Undo, takes it back), and a tap on the rest of the card opens it
+  with its moves as buttons (a tap outside, its X or Esc closes it). Buttons in the bar go at once, except Pass, Claim
+  Initiative and Concede, which a finger holds until the button fills. Your hand is a fan: slide a finger along it to
+  lift each card. A mouse click or a key sends at once. The game runs at a
   table, the arena's `bot/table/serve.js`, which seats the person as one more protocol v2 client and checks every
   answer again, so the person sees only their seat and a slip never loses the game. The dev server sends `/table/api`
   to `TABLE_URL` (default `http://127.0.0.1:8790`); `serve.js --site dist` serves a built Holotable and the table from
