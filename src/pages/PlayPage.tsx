@@ -256,6 +256,7 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
     const [hints] = useKeyHints();
     const queue = useRef<TableMsg[]>([]);
     const pumping = useRef(false);
+    const pumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const rootRef = useRef<HTMLDivElement>(null);
     const splitApi = useRef<SplitApi | null>(null);
     // the board's middle, where the prompt bar is drawn (a portal, so the memoised board doesn't redraw for the bar)
@@ -282,9 +283,11 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
                 setHello(m);
             } else if (m.t === 'move') {
                 const snap = toSnapshot(m.state, you);
+                if (!effectsRef.current || queue.current.length >= 8) liveEffects.current.clear();
                 const cue = effectsRef.current && queue.current.length < 8 ? liveEffects.current.move(snapshotRef.current, snap, m) : null;
                 snapshotRef.current = snap;
                 setEffectCue(cue);
+                if (cue) setFocus(null);
                 setShown((s) => ({ prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 const { state: _state, ...entry } = m;
                 setLog((l) => [entry, ...l].slice(0, 60));
@@ -329,7 +332,7 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
                 setEnd(m);
             }
             if (wait) {
-                setTimeout(next, wait);
+                pumpTimer.current = setTimeout(next, wait);
             } else {
                 next();
             }
@@ -337,10 +340,15 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
         next();
     }, []);
 
-    useEffect(() => table.follow(id, (m) => {
-        queue.current.push(m);
-        pump();
-    }, setDown), [table, id, pump]);
+    useEffect(() => {
+        const stop = table.follow(id, (m) => { queue.current.push(m); pump(); }, setDown);
+        return () => {
+            stop();
+            if (pumpTimer.current) clearTimeout(pumpTimer.current);
+            queue.current = [];
+            pumping.current = false;
+        };
+    }, [table, id, pump]);
 
     // what this table shows, for a host page's feedback box (kit/feedback.ts): read when the person opens it
     const onScreen = useRef<Record<string, unknown> | null>(null);
@@ -375,7 +383,7 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
      * decision's only answer, given by itself) waits AUTO_MS.
      */
     const act = useCallback((a: Action, split?: { id: string; amount: number }[], hold = false, auto = false) => {
-        if (!decide || sending || held) {
+        if (!decide || sending || held || effectCue) {
             return;
         }
         setFocus((f) => (f?.touch ? null : f));
@@ -390,7 +398,7 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
             setHeld(null);
             void send(h.seq, h.a, h.split);
         }, auto ? AUTO_MS : TAKE_BACK_MS);
-    }, [decide, sending, held, send]);
+    }, [decide, sending, held, effectCue, send]);
     const undo = useCallback(() => {
         if (heldTimer.current) {
             clearTimeout(heldTimer.current);
@@ -435,24 +443,25 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
     // is a big move), with no split to make and no cards shown to read; Stop (undo) leaves it to the person
     const lone = auto && decide && !decide.prompt.actionWindow && !decide.prompt.cards?.length && decide.actions.length === 1 && decide.actions[0].kind !== 'distribute' ? decide.actions[0] : null;
     useEffect(() => {
-        if (lone && decide && !end && !sending && !held && autoSeq.current !== decide.seq) {
+        if (lone && decide && !end && !sending && !held && !effectCue && autoSeq.current !== decide.seq) {
             autoSeq.current = decide.seq;
             act(lone, undefined, false, true);
         }
-    }, [lone, decide, end, sending, held, act]);
+    }, [lone, decide, end, sending, held, effectCue, act]);
     const stopAuto = useCallback(() => {
         undo();
         setAuto(false);
     }, [undo, setAuto]);
 
-    const cur = shown?.cur ?? null;
+    const cur = effectCue?.transition?.before ?? shown?.cur ?? null;
     const ids = useMemo(() => {
         if (!shown) {
             return null;
         }
-        const steps = (shown.prev ? [shown.prev, shown.cur] : [shown.cur]).map((state, n) => ({ t: 'step' as const, n, state }));
+        const positions = effectCue?.transition ? [effectCue.transition.before] : shown.prev ? [shown.prev, shown.cur] : [shown.cur];
+        const steps = positions.map((state, n) => ({ t: 'step' as const, n, state }));
         return trackUnits({ header: { t: 'header', v: 1, seed: 0, engine: null, players: [] }, steps, end: null });
-    }, [shown]);
+    }, [shown, effectCue]);
 
     // what the board can click: card actions by card id, display picks by the shown card's id
     const picks = useMemo(() => {
@@ -519,8 +528,8 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
     const waiting = useMemo((): Pick | null => (held ? { state: () => null, pick: () => undefined, held: actionCardId(held.a) ?? null, undo, outcome } : null), [held, undo, outcome]);
 
     // the page's keys while this table is on screen and nothing is being typed
-    const now = useRef({ keys, decide, sending, act, pick, end, help, held, undo, sendNow, takeBack });
-    now.current = { keys, decide, sending, act, pick, end, help, held, undo, sendNow, takeBack };
+    const now = useRef({ keys, decide, sending, effectCue, act, pick, end, help, held, undo, sendNow, takeBack });
+    now.current = { keys, decide, sending, effectCue, act, pick, end, help, held, undo, sendNow, takeBack };
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             const s = now.current;
@@ -559,7 +568,7 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
                 }
                 return;
             }
-            const ready = () => !e.repeat && !!s.decide && !s.sending && performance.now() >= armed.current;
+            const ready = () => !e.repeat && !!s.decide && !s.sending && !s.effectCue && performance.now() >= armed.current;
             if (e.key === 'Escape') {
                 const active = (root.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement | null;
                 if (s.help) {
@@ -660,15 +669,15 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
                     </span>
                 </div>
                 <div className="play-layout">
-                    <div ref={boardRef} className="play-table-area">
+                    <div ref={boardRef} className="play-table-area" data-effect-state={effectCue ? 'animating' : 'settled'}>
                         {cur && ids ? (
                             <PickContext.Provider value={live ? pick : waiting}>
-                                <Board state={cur} prev={shown!.prev} ids={ids[ids.length - 1]} prevIds={shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
+                                <Board state={cur} prev={effectCue ? null : shown!.prev} ids={ids[ids.length - 1]} prevIds={!effectCue && shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
                                     onFocus={setFocus} onLeave={unlook} values={false} spots={false} center={center} fanHand={seat} bottomSeat={seat} tableLayout cardSize={cardSize} />
                             </PickContext.Provider>
                         ) : <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Shuffling…</div>}
-                        <CardEffectOverlay cue={effectCue} boardRef={boardRef} onComplete={() => setEffectCue(null)} />
-                        {cur && <BoardLines root={boardRef} step={shown!.n} trail={trail} botSeat={seat === 'p1' ? 'p2' : 'p1'}
+                        <CardEffectOverlay cue={effectCue} boardRef={boardRef} onComplete={() => setEffectCue(current => current?.key === effectCue?.key ? null : current)} />
+                        {cur && !effectCue && <BoardLines root={boardRef} step={shown!.n} trail={trail} botSeat={seat === 'p1' ? 'p2' : 'p1'}
                             asking={live && !end ? asking : null} answers={answers} question={decide ? promptText(decide) : null} />}
                     </div>
                     <aside className="play-move-log border-t lg:border-t-0 lg:border-l border-line px-3 py-3 flex flex-col gap-2 overflow-auto">

@@ -58,3 +58,17 @@ test('animation defaults on, explicit off persists; older saved settings preserv
         values.set('old',JSON.stringify({art:false}));const legacy=createSettingsStore('old');stores.push(legacy);assert.equal(legacy.getState().effects,true);
     } finally {stores.forEach(releaseSettingsStore);global.localStorage=old;}
 });
+for (const mutation of ['round','phase','print','duplicate']) test(`live rejects ${mutation} contradiction coherently carried with successful damage`,()=>{
+    const before=demos[0].game.steps[0].state,after=structuredClone(demos[0].game.steps[2].state),source=before.players.p1.hand[0];
+    if(mutation==='round')after.round++;
+    if(mutation==='phase')after.phase='regroup';
+    if(mutation==='print')after.players.p1.discard[0].s='SOR_999';
+    if(mutation==='duplicate')after.players.p1.discard.push({...after.players.p1.discard[0]});
+    assert.equal(liveCardEffects().move(before,after,move(source)),null);
+});
+test('boundary interruption clears a pending choice before a later successful receipt',()=>{
+    const before=demos[0].game.steps[0].state,after=demos[0].game.steps[2].state,source=before.players.p1.hand[0],tracker=liveCardEffects();
+    assert.equal(tracker.move(before,before,move(source)),null);
+    assert.equal(tracker.move(before,{...before,round:before.round+1},{...move(source),card:undefined}),null);
+    assert.equal(tracker.move(before,after,{...move(source),card:undefined}),null);
+});

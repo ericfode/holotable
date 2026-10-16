@@ -16,9 +16,12 @@ export function liveCardEffects() {
     return {
         clear() { pending = null; },
         move(before: Snapshot | null, after: Snapshot, move: MoveMsg): CardEffectCue | null {
-            if (!before || before.phase !== 'action') return null;
-            if (before.round !== after.round || before.phase !== after.phase || pending?.seat !== move.seat) pending = null;
-            const source = move.card?.id ? before.players[move.seat].hand.find(c => c.id === move.card!.id) : undefined;
+            if (!before || before.phase !== 'action' || before.round !== after.round || before.phase !== after.phase) { pending = null; return null; }
+            if (pending?.seat !== move.seat) pending = null;
+            const visible = (snapshot: Snapshot) => Object.values(snapshot.players).flatMap(p => [...p.hand, ...p.discard, ...(p.resources ?? []), ...p.ground, ...p.space, ...[...p.ground, ...p.space].flatMap(c => c.u ?? [])]);
+            const same = (a: CardRef, b: CardRef) => a.id === b.id && a.s === b.s && a.n === b.n;
+            const candidates = move.card?.id ? before.players[move.seat].hand.filter(c => c.id === move.card!.id) : [];
+            const source = candidates.length === 1 && visible(before).filter(c => c.id === move.card!.id).length === 1 && same(candidates[0], move.card!) ? candidates[0] : undefined;
             const spec = structuredCard(source ?? null);
             const resourced = source?.id && after.players[move.seat].resources?.some(c => c.id === source.id);
             if (resourced) { pending = null; return null; }
@@ -33,6 +36,8 @@ export function liveCardEffects() {
                 steps: [{ t: 'step', n: 0, state: pending.before }, { t: 'step', n: move.n, state: after }], end: null };
             // Require a witnessed play destination before attributing any continuation.
             const player = after.players[pending.seat];
+            const destinations = visible(after).filter(c => c.id === pending!.source.id);
+            if (destinations.length !== 1 || !same(destinations[0], pending.source)) { pending = null; return null; }
             const destination = pending.cls === 'play-event' ? player.discard.some(c => c.id === pending!.source.id)
                 : [...player.ground, ...player.space].some(c => c.id === pending!.source.id || c.u?.some(u => u.id === pending!.source.id));
             if (!destination) return null;
