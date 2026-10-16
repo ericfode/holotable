@@ -2,7 +2,8 @@
 //   <div id="game"></div>
 //   <script src="swu-viewer-kit.js"></script>
 //   <script>const v = SWUViewer.mount(document.getElementById('game'), { url: 'games/x.jsonl', evals, lens }); v.seek(120);</script>
-// SWUViewer.mountPlay(el, { table }) is the play screen on the host page's table (a person against a bot).
+// SWUViewer.mountPlay(el, { table }) is the play screen on the host page's table (a person against a bot, or, when the
+// table offers them, against another person: lobby, invite links, pasted codes; and decks added from SWUDB).
 // It renders into a shadow root, so its styles and the host page's styles never touch each other.
 import { useMemo, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -32,7 +33,7 @@ import {
 import { OMNI_V1_ID } from '../data/omniV1';
 import type { Game, Seat, Snapshot } from '../data/types';
 import { PlayPage } from '../pages/PlayPage';
-import { TableContext, type DeckOption, type Table, type TableOptions } from '../play/client';
+import { TableContext, type BotInfo, type DeckOption, type PairRequest, type PairState, type Pairing, type PeopleMode, type Table, type TableOptions } from '../play/client';
 import type { Act, TableMsg } from '../play/protocol';
 
 export interface MountOptions {
@@ -490,7 +491,9 @@ export function mountBoard(el: HTMLElement, state: Snapshot, opts: { bots?: Reco
 
 /**
  * Holotable's play screen (#/play) on a table the host page gives: pick a deck, play the bot on the board, see the end.
- * `table` is a play/client.ts Table (the arena window's /play runs the referee and the bot in a worker of the tab).
+ * `table` is a play/client.ts Table (the arena window's /play runs the referee and the bot in a worker of the tab). A
+ * table whose options offer `people` or `importDeck` (with its pair and importDeck methods) gets the open-tables start
+ * screen; the networking is all the table's.
  * The game is not kept in the host page's address, so a reload starts over.
  */
 export function mountPlay(el: HTMLElement, opts: { table: Table; fonts?: boolean; cardText?: CardTextFile | string }) {
@@ -569,4 +572,4 @@ export { GameViewer, Glyph, Spine, ActionIcon, EdgeBreakdown, parseGame, classif
 export { edgeTerms, estimateLens, lensAt, lensByIndex };
 export type { EvalFile, Game, Action, ActionClass, ActionIconProps, LensEntry, LensFile, LensIndex, LensStep, LensInput, FileStep };
 export type { Chance, ScoreSeries, ScoreSource, ScoreStep, ScoreView };
-export type { Act, DeckOption, Table, TableMsg, TableOptions };
+export type { Act, BotInfo, DeckOption, PairRequest, PairState, Pairing, PeopleMode, Table, TableMsg, TableOptions };

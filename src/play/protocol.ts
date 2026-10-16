@@ -54,7 +54,8 @@ export interface HelloMsg { t: 'hello'; you: Seat; players: { id: Seat; name: st
 export interface DecideMsg { t: 'decide'; seq: number; you: Seat; ms: number | null; prompt: PromptView; state: SeatState; actions: Action[]; revealed: PlacedRef[] }
 export interface MoveMsg { t: 'move'; n: number; seat: Seat; kind: Action['kind']; label: string; card?: CardRef; split?: { id: string; amount: number }[]; state: SeatState }
 export interface OverMsg { t: 'over'; you: Seat; winner: Seat | null; outcome: string; round: number; steps: number }
-export interface EndMsg { t: 'end'; winner: Seat | null; outcome: string; round: number; steps: number; error: string | null; by: Seat | null; conceded: boolean; replay: string | null }
+/** conceded: the game ended by a concession; concededBy: whose (a table with two people says; without it, the person's) */
+export interface EndMsg { t: 'end'; winner: Seat | null; outcome: string; round: number; steps: number; error: string | null; by: Seat | null; conceded: boolean; concededBy?: Seat | null; replay: string | null }
 export type TableMsg = HelloMsg | DecideMsg | MoveMsg | OverMsg | EndMsg;
 
 export interface Act { t: 'act'; seq: number; i: number; split?: { id: string; amount: number }[] }
@@ -105,6 +106,20 @@ export function splitProblem(d: Distribute, split: { id: string; amount: number 
         return 'choose at least one target';
     }
     return null;
+}
+
+/**
+ * The end card's headline and detail line for the person at `seat` (`opponent` names the other seat). A concession is
+ * the person's own unless `concededBy` names the other seat: then the person won because they conceded.
+ */
+export function endText(end: EndMsg, seat: Seat, opponent: string): { head: string; detail: string } {
+    const won = end.winner === seat;
+    if (won && end.concededBy != null && end.concededBy !== seat) {
+        return { head: 'You won', detail: 'They conceded.' };
+    }
+    const head = end.conceded ? 'You conceded' : won ? 'You won' : end.winner ? `${opponent} won` : 'No winner';
+    const detail = end.outcome === 'won' ? `Round ${end.round}, ${end.steps} moves.` : end.outcome === 'ERROR' && !end.conceded ? `The game stopped: ${end.error ?? 'an error'}.` : end.outcome === 'STEP_CAP' ? 'The game ran out of moves.' : `Round ${end.round}.`;
+    return { head, detail };
 }
 
 /** Engine prompt texts as a sentence: "Choose an action", a menu title, or a card prompt. */

@@ -119,6 +119,15 @@ Who embeds it:
   answer again, so the person sees only their seat and a slip never loses the game. The dev server sends `/table/api`
   to `TABLE_URL` (default `http://127.0.0.1:8790`); `serve.js --site dist` serves a built Holotable and the table from
   one address. Code: `src/pages/PlayPage.tsx`, `src/play/` (messages, client, which cards can be clicked).
+  A host page's table (`SWUViewer.mountPlay(el, { table })`, `Table` in `src/play/client.ts`) may offer more, all
+  optional: `botInfo` (title, owner, Elo, note and download size per bot, for the opponent picker), `importDeck` with
+  `Table.importDeck` ("Add a deck" from a SWUDB link or pasted JSON), and `people` with `Table.pair` (the "Open
+  tables" start screen: find a game in a lobby, optionally falling back to a bot after 30 s, invite a friend by link
+  and code, join with a link or code, or trade codes by hand with no lobby; the table does all the networking and
+  reports a line of state, a link or code to copy and a field for the answer code). `you`, `join` (a code from the
+  address, opening on "Join a friend") and `notice` fill in the rest; an end message's `concededBy` tells "they
+  conceded" from "you conceded". A table that offers none of it gets the bot screen above, unchanged
+  (`src/play/StartModes.tsx`, `src/play/modes.ts`).
 - **Card effects** (`#/effects`, also in the navigation): a growing catalogue of bespoke animations. Select a card, replay it, or play the collection on a clearly labeled staged board. Modal examples name their choices; shared ability filters and a visual legend explain the mechanics. The [batch ledger](docs/card-animation-batches.md) distinguishes authored scenes from independently accepted examples and the remaining imported catalogue.
 - **Frame inspection**: the slider and Anticipation / Impact / Outcome / Settle buttons pause the same Anime.js timeline used in playback. **Final board** shows the persistent result with no overlay. Deep-link with `#/effects?card=superlaser-blast&progress=46` (percent). Change of Heart and Sneak Attack also have a separately selectable **Regroup begins** example (`&stage=regroup-start`); playing their immediate scene does not advance to regroup automatically. Examples declare targets, prerequisites, payments, and before/after snapshots independently of recorded games.
 - **Sound effects**: enable Sound in the showcase or replay viewer, then adjust the volume. Twenty original procedural scores combine card signatures with shared ability sounds. Web Audio starts only from the enable gesture; muting, scrubbing, changing cues, leaving the page, and hiding the tab cancel the active sound. Held inspection frames are silent. Sound starts off for each viewer session. See [the sound language](docs/card-sound-language.md).

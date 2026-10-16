@@ -11,14 +11,18 @@ import { cardTextBySet } from '../lib/cardText';
 import { createSettingsStore, SettingsProvider } from '../lib/settings';
 import { hashParam } from '../lib/route';
 import { PickContext, type Pick } from '../play/pick';
-import { TableContext, type TableOptions } from '../play/client';
-import { promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
+import { TableContext, type DeckOption, type TableOptions } from '../play/client';
+import { firstMode, startModes, type StartMode } from '../play/modes';
+import { OpponentPicker } from '../play/OpponentPicker';
+import { endText, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
+import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../play/StartModes';
 
 /**
  * Play mode (#/play): a person sits at a table (the arena's bot/table) against a bot. The board is the replay board
  * drawn from the person's seat; every legal move is a glowing card, a button in the prompt bar, or an entry in
  * "All moves", so no prompt can leave the person stuck. The table checks every answer again. The table is the
- * TableContext's (play/client.ts): the HTTP table by default, or the host page's (the viewer kit's mountPlay).
+ * TableContext's (play/client.ts): the HTTP table by default, or the host page's (the viewer kit's mountPlay), which
+ * may also pair the person with another person (the open-tables start screen) and add decks.
  */
 export function PlayPage() {
     const table = useContext(TableContext);
@@ -49,6 +53,10 @@ export function PlayPage() {
 
 const RANDOM = 'random';
 
+/**
+ * Pick a deck and an opponent. A table that offers people modes or deck import (TableOptions.people, importDeck) gets
+ * the open-tables screen: mode tabs, "Add a deck", and a waiting panel while the table pairs (play/StartModes.tsx).
+ */
 function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: string }) => void }) {
     const table = useContext(TableContext);
     const [opts, setOpts] = useState<TableOptions | null>(null);
@@ -57,12 +65,15 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
     const [deck, setDeck] = useState('');
     const [botDeck, setBotDeck] = useState('');
     const [busy, setBusy] = useState(false);
+    const [mode, setMode] = useState<StartMode>('bot');
+    const pair = usePairing(table, onStart, setError);
     useEffect(() => {
         table.options().then((o) => {
             setOpts(o);
             setBot(o.bots[0] ?? '');
             setDeck(o.decks.find((d) => d.name !== o.botDeck)?.name ?? o.decks[0]?.name ?? '');
             setBotDeck(o.botDeck);
+            setMode(firstMode(startModes(o, !!table.pair), o.join));
         }, (e) => setError(String(e.message ?? e)));
     }, [table]);
     const leaderOf = (name: string) => opts?.decks.find((d) => d.name === name);
@@ -83,7 +94,7 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
     if (!opts) {
         return <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Finding the table…</div>;
     }
-    const pickDeck = (label: string, value: string, set: (v: string) => void, seat: Seat, id: string) => {
+    const pickDeck = (label: string, value: string, set: (v: string) => void, seat: Seat, id: string, extra?: ReactNode) => {
         const d = leaderOf(value);
         return (
             <div className="flex flex-col gap-2 min-w-0">
@@ -92,6 +103,7 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
                     {seat !== 'p1' && <option value={RANDOM}>Random: one of the {opts.decks.length} lists</option>}
                     {opts.decks.map((x) => <option key={x.name} value={x.name}>{x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
                 </select>
+                {extra}
                 {d && <div className="flex gap-2 items-end" style={{ '--seat': `var(--color-${seat})` } as CSSProperties}>
                     <Card card={{ id: `${id}-leader`, n: cardTextBySet(d.leader)?.t ?? d.leader, s: d.leader }} shape="wide" kind="leader" width={144} />
                     <Card card={{ id: `${id}-base`, n: cardTextBySet(d.base)?.t ?? d.base, s: d.base }} shape="wide" kind="base" width={110} />
@@ -99,34 +111,45 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
             </div>
         );
     };
+    // open tables: the modes this table can pair for, and deck import when it can add one
+    const modes = startModes(opts, !!table.pair);
+    const people = modes.length > 1;
+    const importDeck = opts.importDeck && table.importDeck ? table.importDeck.bind(table) : null;
+    const added = (d: DeckOption) => {
+        setOpts((o) => o && { ...o, decks: [...o.decks.filter((x) => x.name !== d.name), d] });
+        setDeck(d.name);
+    };
+    const pickMode = (m: StartMode) => {
+        setMode(m);
+        setError(null);
+    };
     return (
         <div className="max-w-3xl mx-auto px-4 py-10 flex flex-col gap-8">
             <header className="flex flex-col gap-2">
                 <span className="text-xs uppercase tracking-[0.16em] text-gold font-mono">Play mode</span>
-                <h1 className="font-display text-3xl font-bold">Play against a bot</h1>
-                <p className="text-dim max-w-xl">{table.note ?? 'You sit at seat 1 with the real rules engine. The bot sees only what its seat sees: your hand and both decks stay hidden from it. Every game is saved as a replay.'}</p>
+                <h1 className="font-display text-3xl font-bold">{people ? 'Open tables' : 'Play against a bot'}</h1>
+                {opts.you && <span className="text-xs text-dim">You play as <span className="font-mono text-fg">{opts.you}</span></span>}
+                <p className="text-dim max-w-xl">{table.note ?? (people ? 'Play another person or a bot on the real rules engine. Each side sees only its own seat: your hand and your deck stay hidden from the other.' : 'You sit at seat 1 with the real rules engine. The bot sees only what its seat sees: your hand and both decks stay hidden from it. Every game is saved as a replay.')}</p>
             </header>
-            {opts.bots.length === 1 ? (
-                <div className="flex flex-col gap-1 max-w-sm">
-                    <span className="text-xs uppercase tracking-[0.12em] text-dim">Opponent</span>
-                    <span className="font-display font-semibold">{opts.bots[0]}</span>
+            {pair.open && <PairingPanel pairing={pair.open.pairing} state={pair.open.state} onCancel={pair.cancel} />}
+            {/* kept while a pairing is open (hidden), so a code or a choice is still there after Cancel or a failed join */}
+            <div className={pair.open ? 'hidden' : 'flex flex-col gap-8'}>
+                {people && <ModeTabs modes={modes} mode={mode} onMode={pickMode} panel="play-mode-panel" />}
+                <div className="flex flex-col gap-8" {...(people ? { id: 'play-mode-panel', role: 'tabpanel', 'aria-labelledby': `play-tab-${mode}` } : {})}>
+                    {mode === 'bot' && <OpponentPicker opts={opts} bot={bot} onBot={setBot} />}
+                    <div className="grid gap-6 sm:grid-cols-2">
+                        {pickDeck('Your deck', deck, setDeck, 'p1', 'play-deck', importDeck && <DeckImport onImport={importDeck} onAdded={added} />)}
+                        {mode === 'bot'
+                            ? pickDeck("The bot's deck", botDeck, setBotDeck, 'p2', 'play-bot-deck')
+                            : <PeopleStart mode={mode} people={opts.people ?? []} deck={deck} joinCode={opts.join ?? ''} error={error} onPair={pair.start} />}
+                    </div>
+                    {mode === 'bot' && <div className="flex items-center gap-3">
+                        <button className="play-btn primary" onClick={go} disabled={busy || !bot || !deck}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Sit down</button>
+                        {error && <span className="text-p2 text-sm">{error}</span>}
+                    </div>}
                 </div>
-            ) : (
-                <div className="flex flex-col gap-2 max-w-sm">
-                    <label htmlFor="play-bot" className="text-xs uppercase tracking-[0.12em] text-dim">Opponent</label>
-                    <select id="play-bot" className="play-select" value={bot} onChange={(e) => setBot(e.target.value)}>
-                        {opts.bots.map((b) => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                </div>
-            )}
-            <div className="grid gap-6 sm:grid-cols-2">
-                {pickDeck('Your deck', deck, setDeck, 'p1', 'play-deck')}
-                {pickDeck("The bot's deck", botDeck, setBotDeck, 'p2', 'play-bot-deck')}
             </div>
-            <div className="flex items-center gap-3">
-                <button className="play-btn primary" onClick={go} disabled={busy || !bot || !deck}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Sit down</button>
-                {error && <span className="text-p2 text-sm">{error}</span>}
-            </div>
+            {opts.notice && <p className="text-xs text-dim">{opts.notice}</p>}
         </div>
     );
 }
@@ -631,8 +654,7 @@ function EndCard({ end, seat, bot, id, onLeave, hints }: { end: EndMsg; seat: Se
     const won = end.winner === seat;
     // the end's choices take the number keys, like the bar's
     const cap = (k: string) => (hints ? <Kbd k={k} className="hint" /> : null);
-    const head = end.conceded ? 'You conceded' : won ? 'You won' : end.winner ? `${bot} won` : 'No winner';
-    const detail = end.outcome === 'won' ? `Round ${end.round}, ${end.steps} moves.` : end.outcome === 'ERROR' && !end.conceded ? `The game stopped: ${end.error ?? 'an error'}.` : end.outcome === 'STEP_CAP' ? 'The game ran out of moves.' : `Round ${end.round}.`;
+    const { head, detail } = endText(end, seat, bot);
     return (
         <div className="play-end" role="dialog" aria-label="Game over">
             <div className="flex flex-col gap-3 items-start">
