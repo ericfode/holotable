@@ -132,7 +132,8 @@ export interface SeatState {
 export interface DeckList { metadata?: { name?: string }; leader: { id: string; count: number }; base: { id: string; count: number }; deck: { id: string; count: number }[] }
 
 export interface HelloMsg { t: 'hello'; you: Seat; players: { id: Seat; name: string; bot: string }[]; deck: DeckList; opponent: DeckList }
-/** undo: the person may take back their last move instead of answering (a game against a bot: Act {t: 'undo'}) */
+/** undo: the person may take back their last move instead of answering (Act {t: 'undo'}); false at a table that lets them
+ * take back moves when there is none yet, absent where they never can (a game between people) */
 export interface DecideMsg { t: 'decide'; seq: number; you: Seat; ms: number | null; prompt: PromptView; state: SeatState; actions: Action[]; revealed: PlacedRef[]; undo?: boolean }
 export interface MoveMsg { t: 'move'; n: number; seat: Seat; kind: Action['kind']; label: string; card?: CardRef; split?: { id: string; amount: number }[]; state: SeatState }
 export interface OverMsg { t: 'over'; you: Seat; winner: Seat | null; outcome: string; round: number; steps: number }

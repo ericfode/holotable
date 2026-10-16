@@ -213,7 +213,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [sending, setSending] = useState(false);
     const [held, setHeld] = useState<Held | null>(null);
     const heldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    // taking back a move that went (decide.undo): `undoable` once the game has offered it, `undoing` until it is back
+    // taking back a move that went (decide.undo): `undoable` while the bot answers, `undoing` until the move is back
     const [undoable, setUndoable] = useState(false);
     const [undoing, setUndoing] = useState(false);
     // where an Undo is: 'asked' until the table's rewind comes (a decision queued before it is the old one, so Undo goes
@@ -275,9 +275,9 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     setUndoing(false);
                 }
                 setProblem(null);
-                if (m.undo) {
-                    setUndoable(true);
-                }
+                // while the bot answers this decision's move: a move to take back before it, or (at a table that lets
+                // the person take back moves, undo present) the real choice the person is about to make
+                setUndoable(!!m.undo || (m.undo === false && m.actions.length > 1));
             } else if (m.t === 'rewind') {
                 // the move is back (the board as it was then, the moves after it gone), or could not be: either way the
                 // decision that follows says what to do next, and until it comes the old one is gone and Undo waits
