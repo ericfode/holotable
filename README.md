@@ -130,7 +130,12 @@ Who embeds it:
   countdown ring on the icon (a tap on the ring, or Undo, takes it back), and a tap on the rest of the card opens it
   with its moves as buttons (a tap outside, its X or Esc closes it). Buttons in the bar go at once, except Pass, Claim
   Initiative and Concede, which a finger holds until the button fills. Your hand is a fan: slide a finger along it to
-  lift each card. A mouse click or a key sends at once. The game runs at a
+  lift each card. A mouse click or a key sends at once. Result preview: where the table worked out what a move's
+  answers would do (`Action.preview`, the arena's `bot/table/preview.js`), each target shows it on the card ("3 dmg",
+  "Defeated", "−Shield"), and the answer under the pointer, or waiting to go, shows it on the whole board (units it
+  would defeat fade out) and in words in the bar. Undo: against a bot (`decide.undo`), the bar's Undo button or
+  Ctrl+Z (⌘Z) takes back your last move that went, and the bot's moves after it; the table plays the game again to
+  that decision (`rewind`). The game runs at a
   table, the arena's `bot/table/serve.js`, which seats the person as one more protocol v2 client and checks every
   answer again, so the person sees only their seat and a slip never loses the game. The dev server sends `/table/api`
   to `TABLE_URL` (default `http://127.0.0.1:8790`); `serve.js --site dist` serves a built Holotable and the table from

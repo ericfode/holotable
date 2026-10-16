@@ -30,6 +30,82 @@ export interface Action {
      * target, an action ability with nothing to do); the move stays legal, and the engine asks again before it plays
      */
     noEffect?: boolean;
+    /** what this answer would do, worked out by the table on a copy of the game before it is sent (MovePreview) */
+    preview?: MovePreview;
+}
+
+/**
+ * One card a previewed answer changes (the arena's bot/table/preview.js): `d` damage added to a unit or base (below 0:
+ * healed), `gone` how a unit leaves play ('left': the person cannot see where it went), `lost` the ids of its upgrades
+ * that go (a Shield token that breaks).
+ */
+export interface PreviewChange { id: string; d?: number; gone?: 'defeated' | 'captured' | 'returned' | 'left'; lost?: string[] }
+/**
+ * What an answer would do: the cards it changes, `more` when more choices follow (the person's or the bot's, so the
+ * result stops there) and `winner` when it ends the game. The table re-deals every card the person cannot see first,
+ * so a preview never gives one away.
+ */
+export interface MovePreview { cards: PreviewChange[]; more?: boolean; winner?: Seat }
+
+const GONE: Record<NonNullable<PreviewChange['gone']>, string> = { defeated: 'Defeated', captured: 'Captured', returned: 'Back to hand', left: 'Leaves play' };
+
+/** A change as a few words on the card it changes: "Defeated", "3 damage", "Heals 2", "Loses Shield". */
+export function changeText(c: PreviewChange, upgradeName?: (id: string) => string | null): string {
+    if (c.gone) {
+        return GONE[c.gone] ?? 'Leaves play';
+    }
+    const parts: string[] = [];
+    if (c.d && c.d > 0) {
+        parts.push(`${c.d} damage`);
+    } else if (c.d && c.d < 0) {
+        parts.push(`Heals ${-c.d}`);
+    }
+    if (c.lost?.length) {
+        const names = c.lost.map((id) => upgradeName?.(id) ?? null);
+        parts.push(`Loses ${names.every(Boolean) ? [...new Set(names)].join(', ') : c.lost.length === 1 ? 'an upgrade' : `${c.lost.length} upgrades`}`);
+    }
+    return parts.join(' · ');
+}
+
+/** A change in a word or two, for the mark on a card a choice would change: "Defeated", "3 dmg", "+2 HP", "−Shield". */
+export function changeShort(c: PreviewChange, upgradeName?: (id: string) => string | null): string {
+    if (c.gone) {
+        return c.gone === 'returned' ? 'To hand' : c.gone === 'left' ? 'Leaves' : GONE[c.gone] ?? 'Leaves';
+    }
+    const parts: string[] = [];
+    if (c.d && c.d > 0) {
+        parts.push(`${c.d} dmg`);
+    } else if (c.d && c.d < 0) {
+        parts.push(`+${-c.d} HP`);
+    }
+    for (const id of c.lost ?? []) {
+        parts.push(`−${upgradeName?.(id) ?? 'upgrade'}`);
+    }
+    return parts.join(' ');
+}
+
+/**
+ * A preview as one line for the prompt bar or a card's moves: each change with the card's name ("Wing Leader:
+ * defeated · K-2SO: 2 damage"), then the end of the game or "then more choices". Cards the board cannot name are left
+ * out; an answer that changes nothing says so.
+ */
+export function previewText(p: MovePreview, nameOf: (id: string) => string | null, you: Seat): string {
+    const parts = p.cards.map((c) => {
+        const n = nameOf(c.id);
+        const t = changeText(c, nameOf);
+        return n && t ? `${n}: ${t.charAt(0).toLowerCase()}${t.slice(1)}` : null;
+    }).filter(Boolean) as string[];
+    if (p.winner) {
+        parts.push(p.winner === you ? 'you win' : 'you lose');
+    } else if (p.more) {
+        parts.push(parts.length ? 'then more choices' : 'more choices follow');
+    }
+    return parts.length ? parts.join(' · ') : 'Nothing on the board changes';
+}
+
+/** A preview as a map from card id to its change, for the board to draw; null without one. */
+export function outcomeOf(p: MovePreview | null | undefined): Map<string, PreviewChange> | null {
+    return p?.cards?.length ? new Map(p.cards.map((c) => [c.id, c])) : null;
 }
 
 export interface PromptCard extends PlacedRef { st: 'selectable' | 'selected' | 'unselectable' | 'invalid' | 'viewOnly' }
@@ -56,14 +132,19 @@ export interface SeatState {
 export interface DeckList { metadata?: { name?: string }; leader: { id: string; count: number }; base: { id: string; count: number }; deck: { id: string; count: number }[] }
 
 export interface HelloMsg { t: 'hello'; you: Seat; players: { id: Seat; name: string; bot: string }[]; deck: DeckList; opponent: DeckList }
-export interface DecideMsg { t: 'decide'; seq: number; you: Seat; ms: number | null; prompt: PromptView; state: SeatState; actions: Action[]; revealed: PlacedRef[] }
+/** undo: the person may take back their last move instead of answering (Act {t: 'undo'}); false at a table that lets them
+ * take back moves when there is none yet, absent where they never can (a game between people) */
+export interface DecideMsg { t: 'decide'; seq: number; you: Seat; ms: number | null; prompt: PromptView; state: SeatState; actions: Action[]; revealed: PlacedRef[]; undo?: boolean }
 export interface MoveMsg { t: 'move'; n: number; seat: Seat; kind: Action['kind']; label: string; card?: CardRef; split?: { id: string; amount: number }[]; state: SeatState }
 export interface OverMsg { t: 'over'; you: Seat; winner: Seat | null; outcome: string; round: number; steps: number }
 /** conceded: the game ended by a concession; concededBy: whose (a table with two people says; without it, the person's) */
 export interface EndMsg { t: 'end'; winner: Seat | null; outcome: string; round: number; steps: number; error: string | null; by: Seat | null; conceded: boolean; concededBy?: Seat | null; replay: string | null }
-export type TableMsg = HelloMsg | DecideMsg | MoveMsg | OverMsg | EndMsg;
+/** A move taken back: the moves after move n are gone and the board is `state` again; or `error`, and nothing changed. */
+export interface RewindMsg { t: 'rewind'; n?: number; state?: SeatState; error?: string }
+export type TableMsg = HelloMsg | DecideMsg | MoveMsg | OverMsg | EndMsg | RewindMsg;
 
-export interface Act { t: 'act'; seq: number; i: number; split?: { id: string; amount: number }[] }
+/** An answer, or `undo`: take back the person's last move (and the other side's moves after it), when decide.undo */
+export type Act = { t: 'act'; seq: number; i: number; split?: { id: string; amount: number }[] } | { t: 'undo'; seq: number };
 
 /**
  * The seat view as a Holotable snapshot, so the replay board draws it. The other hand becomes face-down

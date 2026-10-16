@@ -1191,6 +1191,9 @@ input[type="range"].scrub {
     border-color: var(--color-line);
     box-shadow: 0 0 0 1px #0006, 0 12px 32px -14px #000;
 }
+.play-bar.waiting > .undo-btn {
+    align-self: flex-start;
+}
 .play-bar.held {
     overflow: hidden;
     border-color: var(--color-gold);
@@ -1442,6 +1445,88 @@ input[type="range"].scrub {
     position: static;
     align-self: center;
     transform: none;
+}
+/* a result preview (play mode). res-mark: what choosing this card would do to it, on each choice, to compare them;
+   fate-mark: what the answer under the pointer, or waiting to go, does to every card it changes */
+/* a result preview in words: in the prompt bar (the answer waiting to go, or the one under the pointer) and a tapped card's moves */
+.move-result {
+    display: block;
+    font: 500 12.5px/1.35 var(--font-sans);
+    color: #ffc2c7;
+}
+/* under the card's move icon (top 36%), which would cover them */
+.card > .res-mark,
+.card > .fate-mark {
+    position: absolute;
+    left: 50%;
+    top: 66%;
+    z-index: 8;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: calc(100% - 6px);
+    border-radius: 999px;
+    white-space: nowrap;
+    pointer-events: none;
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1;
+}
+.card > .res-mark {
+    padding: 3px 7px;
+    font-size: 11px;
+    color: #ffd9dc;
+    background: color-mix(in oklab, var(--color-ink) 82%, transparent);
+    box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--color-p2) 75%, transparent), 0 4px 10px -4px #000;
+}
+.card > .res-mark.gone {
+    color: #fff;
+    background: color-mix(in oklab, var(--color-p2) 78%, var(--color-ink));
+}
+.card > .res-mark.heal {
+    color: #dcfff0;
+    box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--color-good) 75%, transparent), 0 4px 10px -4px #000;
+}
+.card > .fate-mark {
+    padding: 4px 8px;
+    font-size: 12.5px;
+    color: #fff;
+    background: color-mix(in oklab, var(--color-p2) 82%, var(--color-ink));
+    box-shadow: 0 6px 16px -6px #000, 0 0 14px -4px var(--color-p2);
+    animation: fate-in 0.18s ease-out;
+}
+.card > .fate-mark.heal {
+    color: #04140d;
+    background: var(--color-good);
+    box-shadow: 0 6px 16px -6px #000, 0 0 14px -4px var(--color-good);
+}
+.card.fated {
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-p2) 80%, transparent), 0 0 18px -4px var(--color-p2);
+}
+.card.fated-gone > img,
+.card.fated-gone > .tile {
+    filter: grayscale(0.85) brightness(0.55);
+    transition: filter 0.18s;
+}
+.card.fated-gone > .fate-mark {
+    font-size: 13.5px;
+    padding: 5px 9px;
+}
+.card.sm > .res-mark,
+.card.sm > .fate-mark {
+    top: 80%;
+    font-size: 9.5px;
+    padding: 2px 5px;
+}
+@keyframes fate-in {
+    from { opacity: 0; transform: translate(-50%, -30%); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .card > .fate-mark {
+        animation: none;
+    }
 }
 .play-btn.dud,
 .play-btn.primary.dud {
