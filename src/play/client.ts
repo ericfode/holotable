@@ -11,12 +11,27 @@ import { hashParam } from '../lib/route';
 
 export interface DeckOption { name: string; leader: string; base: string; style: string | null }
 /** A bot's row in the opponent picker: its title (else its name), who made it, its rating, a note, its download size. */
-export interface BotInfo { title?: string | null; owner?: string | null; elo?: number | null; note?: string | null; bytes?: number | null }
+export interface BotInfo {
+    title?: string | null;
+    owner?: string | null;
+    elo?: number | null;
+    note?: string | null;
+    bytes?: number | null;
+    /** why this browser cannot play the bot (the versus screen says so and keeps Play off), or null */
+    unavailable?: string | null;
+    /** the table's own pick: its emblem is gold */
+    featured?: boolean;
+}
+/**
+ * What a table still has to fetch before a game with a bot can start, as Table.prepare reports it: all here (ready),
+ * bytes left of the total, waiting on the arena to send a file, or the last download's error (start() tries again).
+ */
+export interface Prep { ready: boolean; left: number | null; total: number | null; waiting?: boolean; error?: string | null }
 /** How a person can find another person at an open table: the lobby, an invite link, joining one, or codes pasted by hand. */
 export type PeopleMode = 'lobby' | 'invite' | 'join' | 'direct';
 /**
  * botDeck: the list the bot gets unless the person picks one, or 'random' (one picked by each game's seed). Everything
- * after it is optional: a table that offers none of it (the HTTP table, the arena's /play) gets today's start screen.
+ * after it is optional; playing a bot is always the versus screen, and the rest adds to it.
  */
 export interface TableOptions {
     bots: string[];
@@ -34,6 +49,8 @@ export interface TableOptions {
     join?: string | null;
     /** one line under the start screen, e.g. how finished games are kept */
     notice?: string | null;
+    /** the bot the start screen opens on (default the first) */
+    bot?: string | null;
 }
 
 /** What the start screen asks the table for when the person wants to play a person. */
@@ -69,6 +86,11 @@ export interface Pairing {
 export interface Table {
     options(): Promise<TableOptions>;
     start(bot: string, deck: string, botDeck: string): Promise<{ id: string; seat: Seat }>;
+    /**
+     * Start fetching what a game with this bot needs while the person chooses, and report it (the first report soon);
+     * the returned function stops the reports, and may stop the bot's own downloads. start() still waits for them.
+     */
+    prepare?(bot: string, onPrep: (p: Prep) => void): () => void;
     /** add a deck from a SWUDB link or a pasted list; the returned deck is also listed by later options() calls */
     importDeck?(text: string): Promise<DeckOption>;
     /** find a person to play (the modes in options().people); the game then plays through act, follow and concede as usual */
