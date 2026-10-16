@@ -1,8 +1,10 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { Flag, Loader2, Minus, Play, Plus, RotateCcw } from 'lucide-react';
 import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
 import { FloatingZoom } from '../components/CardZoom';
+import { Kbd, KeyHelp, KeysButton, useKeyHints } from '../components/Keys';
+import { CONTROL, eventKey, isTyping, playKeys, PRIMARY, type PlayKeys } from '../play/keys';
 import { cardById, trackUnits } from '../data/derive';
 import type { CardRef, Seat, Snapshot } from '../data/types';
 import { cardTextBySet } from '../lib/cardText';
@@ -155,6 +157,8 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
 interface Shown { prev: Snapshot | null; cur: Snapshot; n: number }
 
 const BOT_MOVE_MS = 550;
+/** after a new decision shows, keys wait this long before they act, so a key meant for the last one can't answer it */
+const ARM_MS = 250;
 
 function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
     const table = useContext(TableContext);
@@ -168,8 +172,13 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [sending, setSending] = useState(false);
     const [problem, setProblem] = useState<string | null>(null);
     const [focus, setFocus] = useState<Focus | null>(null);
+    const unlook = useCallback(() => setFocus(null), []);
+    const [help, setHelp] = useState(false);
+    const [hints] = useKeyHints();
     const queue = useRef<TableMsg[]>([]);
     const pumping = useRef(false);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const splitApi = useRef<SplitApi | null>(null);
 
     // messages are shown in order; the bot's moves one at a time, so each one animates and can be read
     const pump = useCallback(() => {
@@ -255,15 +264,119 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         return by;
     }, [decide]);
     const selected = useMemo(() => new Set(decide?.prompt.selected ?? []), [decide]);
+    // a damage, healing or token split: its targets glow too, and a click (or the target's key) puts one more there
+    const splitIds = useMemo(() => new Set(decide?.actions.find((a) => a.kind === 'distribute')?.distribute?.targets.map((t) => t.id) ?? []), [decide]);
+    const drawn = useMemo(() => (cur ? drawnIds(cur, seat) : new Set<string>()), [cur, seat]);
+    const keys = useMemo(() => playKeys(decide, cur, seat, drawn), [decide, cur, seat, drawn]);
+    // the keyboard (play/keys.ts): keys wait ARM_MS after each new decision, so a key meant for the last one misses
+    const armed = useRef(0);
+    useEffect(() => {
+        armed.current = performance.now() + ARM_MS;
+    }, [decide?.seq]);
     const pick = useMemo((): Pick => ({
-        state: (cid) => (picks.has(cid) ? (selected.has(cid) ? 'picked' : 'pick') : selected.has(cid) ? 'picked' : null),
+        state: (cid) => (picks.has(cid) ? (selected.has(cid) ? 'picked' : 'pick') : selected.has(cid) ? 'picked' : splitIds.has(cid) ? 'pick' : null),
         pick: (cid) => {
             const a = picks.get(cid);
             if (a) {
                 void act(a);
+            } else if (splitIds.has(cid)) {
+                splitApi.current?.add(cid);
             }
-        }
-    }), [picks, selected, act]);
+        },
+        keyOf: (cid) => (hints ? keys.card.get(cid) ?? null : null),
+        keyReady: () => performance.now() >= armed.current
+    }), [picks, selected, splitIds, act, hints, keys]);
+
+    // the page's keys while this table is on screen and nothing is being typed
+    const now = useRef({ keys, decide, sending, act, pick, end, help });
+    now.current = { keys, decide, sending, act, pick, end, help };
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            const s = now.current;
+            const root = rootRef.current;
+            const target = (e.composedPath?.()[0] ?? e.target) as HTMLElement | null;
+            // a hidden table (a host page showing a replay over it) takes no keys
+            if (!root || !root.getClientRects().length || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isTyping(target)) {
+                return;
+            }
+            if (e.key === '?') {
+                e.preventDefault();
+                setHelp((h) => !h);
+                return;
+            }
+            const ready = () => !e.repeat && !!s.decide && !s.sending && performance.now() >= armed.current;
+            if (e.key === 'Escape') {
+                const active = (root.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement | null;
+                if (s.help) {
+                    setHelp(false);
+                } else if (active?.classList.contains('card') && root.contains(active)) {
+                    active.blur();
+                } else if (s.keys.cancel && ready()) {
+                    void s.act(s.keys.cancel);
+                }
+                return;
+            }
+            if (s.help) {
+                return;
+            }
+            const k = eventKey(e);
+            if (s.end) {
+                const el = root.querySelector<HTMLElement>(`[data-hotkey="${k}"]`);
+                if (el && !e.repeat) {
+                    e.preventDefault();
+                    el.click();
+                }
+                return;
+            }
+            if (e.key === ' ' || e.key === 'Enter') {
+                if (target?.closest?.(CONTROL)) {
+                    return;
+                }
+                e.preventDefault();
+                if (ready()) {
+                    if (s.keys.split) {
+                        splitApi.current?.confirm();
+                    } else if (s.keys.primary) {
+                        void s.act(s.keys.primary);
+                    }
+                }
+                return;
+            }
+            if (e.key === 'Backspace' && s.keys.split) {
+                e.preventDefault();
+                if (ready()) {
+                    splitApi.current?.undo();
+                }
+                return;
+            }
+            if (e.code === 'Slash' && !e.shiftKey) {
+                const search = root.querySelector<HTMLElement>('[data-key-search]');
+                if (search) {
+                    e.preventDefault();
+                    search.focus();
+                }
+                return;
+            }
+            const t = s.keys.byKey.get(k);
+            if (!t) {
+                return;
+            }
+            e.preventDefault();
+            if (t.kind === 'card' && e.shiftKey && !k.startsWith('Shift+')) {
+                // look without picking (⇧ + a letter): the card takes focus, so it shows enlarged; Enter then picks it,
+                // Esc lets go. ⇧ + a digit is a key of its own (choices 11 to 20), so it picks
+                root.querySelector<HTMLElement>(`.card[data-effect-id="${CSS.escape(t.id)}"]`)?.focus();
+            } else if (ready()) {
+                if (t.kind === 'act') {
+                    void s.act(t.action);
+                } else {
+                    s.pick.pick(t.id);
+                }
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
 
     const names: Record<Seat, string> = seat === 'p1' ? { p1: 'You', p2: bot } : { p1: bot, p2: 'You' };
     const youDeck = hello?.deck.metadata?.name;
@@ -272,7 +385,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
 
     return (
         <SettingsProvider store={settings}>
-            <div className="play flex flex-col min-h-[calc(100vh-3rem)]">
+            <div ref={rootRef} className="play flex flex-col min-h-[calc(100vh-3rem)]">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-line text-sm">
                     <span className="font-display font-semibold" style={{ color: `var(--color-${seat})` }}>You</span>
                     <span className="text-faint truncate max-w-[16rem]">{youDeck}</span>
@@ -282,6 +395,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     {cur && <span className="text-dim num">Round {cur.round} · {cur.phase}</span>}
                     {down && !end && <span className="text-p2">Reconnecting…</span>}
                     <span className="ml-auto flex gap-2">
+                        <KeysButton onClick={() => setHelp(true)} className="play-btn ghost" />
                         {!end && <button className="play-btn ghost" onClick={() => void table.concede(id)} title="Give up this game"><Flag size={14} /> Concede</button>}
                     </span>
                 </div>
@@ -290,7 +404,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                         {cur && ids ? (
                             <PickContext.Provider value={decide && !sending ? pick : null}>
                                 <Board state={cur} prev={shown!.prev} ids={ids[ids.length - 1]} prevIds={shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
-                                    onFocus={setFocus} onLeave={() => setFocus(null)} values={false} spots={false} />
+                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} />
                             </PickContext.Provider>
                         ) : <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Shuffling…</div>}
                     </div>
@@ -307,9 +421,12 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                         </ol>
                     </aside>
                 </div>
-                <PromptBar decide={decide} sending={sending} problem={problem} board={cur} bot={bot} drawn={cur ? drawnIds(cur, seat) : new Set()} pick={pick} onAct={act} ended={!!end} />
+                {/* a new bar for each decision, so a button focused by a click can't take the next decision's Space */}
+                <PromptBar key={decide?.seq ?? 'wait'} decide={decide} sending={sending} problem={problem} board={cur} bot={bot} drawn={drawn} pick={pick} onAct={act} ended={!!end}
+                    keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} />
                 {focus && <FloatingZoom key={`${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}`} focus={focus} score={null} />}
-                {end && <EndCard end={end} seat={seat} bot={bot} id={id} onLeave={onLeave} />}
+                {end && <EndCard end={end} seat={seat} bot={bot} id={id} onLeave={onLeave} hints={hints} />}
+                {help && <KeyHelp mode="play" seat={seat} onClose={() => setHelp(false)} />}
             </div>
         </SettingsProvider>
     );
@@ -340,11 +457,18 @@ function drawnIds(s: Snapshot, you: Seat): Set<string> {
     return out;
 }
 
-function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, ended }: {
+function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook }: {
     decide: DecideMsg | null; sending: boolean; problem: string | null; board: Snapshot | null; bot: string; drawn: Set<string>; pick: Pick;
-    onAct: (a: Action, split?: { id: string; amount: number }[]) => void; ended: boolean;
+    onAct: (a: Action, split?: { id: string; amount: number }[]) => void; ended: boolean; keys: PlayKeys; hints: boolean; splitApi: RefObject<SplitApi | null>;
+    /** a tray card shown enlarged (hovered, or focused with ⇧ + its key), and let go */
+    onLook: (f: Focus | null) => void; onUnlook: () => void;
 }) {
     const [all, setAll] = useState(false);
+    // the key cap a button shows: Space on the main button, the bar's number (or ⇧number) on the others
+    const cap = (a: Action): ReactNode => {
+        const k = keys.primary?.i === a.i ? 'Space' : keys.act.get(a.i);
+        return hints && k ? <Kbd k={k} className="hint" /> : null;
+    };
     if (ended) {
         return null;
     }
@@ -367,7 +491,7 @@ function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, e
         <div className="play-bar" role="region" aria-label="Your decision" data-seq={decide.seq}>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span className="font-display font-semibold text-[15px]">{promptText(decide)}</span>
-                {glowing && <span className="text-dim text-xs">Click a glowing card, or choose below.</span>}
+                {glowing && <span className="text-dim text-xs">Click a glowing card{hints ? ' or press its key' : ''}, or choose below.</span>}
                 {problem && <span className="text-p2 text-xs">{problem}</span>}
             </div>
             {tray.length > 0 && (
@@ -377,24 +501,25 @@ function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, e
                         return (
                             <div key={c.id} className={`flex flex-col items-center gap-1 ${c.st === 'unselectable' || c.st === 'invalid' ? 'opacity-50' : ''}`}>
                                 <PickContext.Provider value={pick}>
-                                    <Card card={c} size="sm" kind="hand" />
+                                    <Card card={c} size="sm" kind="hand" onFocus={onLook} onLeave={onUnlook} />
                                 </PickContext.Provider>
                                 <span className="text-[11px] text-dim max-w-[6rem] truncate" title={c.n}>{c.n}</span>
-                                {per.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{a.label.split(':')[0]}</button>)}
+                                {per.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{a.label.split(':')[0]}{cap(a)}</button>)}
                             </div>
                         );
                     })}
                 </div>
             )}
-            {dist && <SplitPanel key={decide.seq} action={dist} d={dist.distribute!} board={board} sending={sending} onAct={onAct} />}
+            {dist && <SplitPanel key={decide.seq} action={dist} d={dist.distribute!} board={board} sending={sending} onAct={onAct} api={splitApi}
+                keyOf={(cid) => (hints ? keys.card.get(cid) ?? null : null)} hints={hints} />}
             <div className="flex flex-wrap gap-2 items-center">
                 {elsewhere.map((a) => (
                     <button key={a.i} className="play-btn" disabled={sending} onClick={() => onAct(a)} title={a.card?.zone ? `In ${zoneName(a.card.zone)}` : undefined}>
-                        {a.card?.id === 'hidden' ? 'A hidden card' : a.card?.n ?? a.label}{a.card?.zone ? <span className="text-faint text-xs ml-1">{zoneName(a.card.zone)}</span> : null}
+                        {a.card?.id === 'hidden' ? 'A hidden card' : a.card?.n ?? a.label}{a.card?.zone ? <span className="text-faint text-xs ml-1">{zoneName(a.card.zone)}</span> : null}{cap(a)}
                     </button>
                 ))}
-                {options.length > 0 && <Options options={options} sending={sending} onAct={onAct} />}
-                {buttons.map((a) => <button key={a.i} className={`play-btn${/^(pass|done|confirm|keep)/i.test(a.label) ? ' primary' : ''}`} disabled={sending} onClick={() => onAct(a)}>{a.label}</button>)}
+                {options.length > 0 && <Options options={options} sending={sending} onAct={onAct} cap={cap} />}
+                {buttons.map((a) => <button key={a.i} className={`play-btn${PRIMARY.test(a.label) ? ' primary' : ''}`} disabled={sending} onClick={() => onAct(a)}>{a.label}{cap(a)}</button>)}
                 <button className="play-btn ghost ml-auto" onClick={() => setAll((x) => !x)} aria-expanded={all}>{all ? 'Hide' : 'All'} moves ({acts.length})</button>
             </div>
             {all && (
@@ -424,61 +549,111 @@ function actionText(a: Action): string {
 }
 
 /** Numbers and short menus as buttons; a long list (name a card: about 1,900 entries) as a search box. */
-function Options({ options, sending, onAct }: { options: Action[]; sending: boolean; onAct: (a: Action) => void }) {
+function Options({ options, sending, onAct, cap }: { options: Action[]; sending: boolean; onAct: (a: Action) => void; cap: (a: Action) => ReactNode }) {
     const [q, setQ] = useState('');
     if (options.length <= 16) {
-        return <>{options.map((a) => <button key={a.i} className="play-btn" disabled={sending} onClick={() => onAct(a)}>{a.label.replace(/^#/, '')}</button>)}</>;
+        return <>{options.map((a) => <button key={a.i} className="play-btn" disabled={sending} onClick={() => onAct(a)}>{a.label.replace(/^#/, '')}{cap(a)}</button>)}</>;
     }
     const hits = q.trim() ? options.filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 24) : [];
     return (
         <div className="flex flex-col gap-1.5 w-full">
-            <input className="play-select max-w-sm" placeholder={`Search ${options.length} choices`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the choices" />
+            {/* / jumps here; Enter takes the first match, Esc leaves the box */}
+            <input className="play-select max-w-sm" placeholder={`Search ${options.length} choices (/)`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the choices"
+                data-key-search="" aria-keyshortcuts="/" onKeyDown={(e) => {
+                    if (e.key === 'Enter' && hits.length && !sending) {
+                        e.preventDefault();
+                        onAct(hits[0]);
+                    } else if (e.key === 'Escape') {
+                        e.currentTarget.blur();
+                    }
+                }} />
             <div className="flex flex-wrap gap-1.5">{hits.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{a.label}</button>)}</div>
         </div>
     );
 }
 
+/** What the keys (and clicks on the board) do to an open split. */
+interface SplitApi { add: (id: string) => void; undo: () => void; confirm: () => void }
+
 /** Split damage, healing or tokens: a stepper per target, sent only when it adds up. */
-function SplitPanel({ action, d, board, sending, onAct }: { action: Action; d: Distribute; board: Snapshot | null; sending: boolean; onAct: (a: Action, split?: { id: string; amount: number }[]) => void }) {
-    const [amounts, setAmounts] = useState<Record<string, number>>({});
+function SplitPanel({ action, d, board, sending, onAct, api, keyOf, hints }: {
+    action: Action; d: Distribute; board: Snapshot | null; sending: boolean; onAct: (a: Action, split?: { id: string; amount: number }[]) => void;
+    api: RefObject<SplitApi | null>; keyOf: (id: string) => string | null; hints: boolean;
+}) {
+    // each one placed, oldest first, so Backspace takes back the last
+    const [st, setSt] = useState<{ amounts: Record<string, number>; order: string[] }>({ amounts: {}, order: [] });
+    const { amounts } = st;
     const split = d.targets.map((t) => ({ id: t.id, amount: amounts[t.id] ?? 0 })).filter((e) => e.amount > 0);
     const total = split.reduce((t, e) => t + e.amount, 0);
     const why = splitProblem(d, split);
     const name = (cid: string): CardRef | null => (board ? cardById(board, cid) : null);
-    const bump = (cid: string, by: number, cap: number | null) => setAmounts((m) => {
-        const v = Math.max(0, Math.min(cap ?? d.amount, (m[cid] ?? 0) + by));
-        return { ...m, [cid]: v };
+    const bump = (cid: string, by: 1 | -1) => setSt((s) => {
+        const t = d.targets.find((x) => x.id === cid);
+        const v = s.amounts[cid] ?? 0;
+        const placed = Object.values(s.amounts).reduce((n, x) => n + x, 0);
+        if (!t || (by > 0 ? placed >= d.amount || (t.cap !== null && v >= t.cap) : v === 0)) {
+            return s;
+        }
+        const last = s.order.lastIndexOf(cid);
+        return { amounts: { ...s.amounts, [cid]: v + by }, order: by > 0 ? [...s.order, cid] : [...s.order.slice(0, last), ...s.order.slice(last + 1)] };
+    });
+    const confirm = () => {
+        if (!sending && !why) {
+            onAct(action, split);
+        }
+    };
+    // the panel on screen answers the keys; a panel going away lets go only of its own handle (the next split's may be in)
+    useLayoutEffect(() => {
+        const mine: SplitApi = {
+            add: (cid) => bump(cid, 1),
+            undo: () => setSt((s) => {
+                const cid = s.order[s.order.length - 1];
+                return cid ? { amounts: { ...s.amounts, [cid]: (s.amounts[cid] ?? 1) - 1 }, order: s.order.slice(0, -1) } : s;
+            }),
+            confirm
+        };
+        api.current = mine;
+        return () => {
+            if (api.current === mine) {
+                api.current = null;
+            }
+        };
     });
     return (
         <div className="flex flex-col gap-2 border border-line rounded-lg p-2.5 bg-ink/60">
-            <span className="text-sm">Split <b className="num">{d.amount}</b> {d.tokenType ?? d.type}: <span className={why ? 'text-gold' : 'text-good'}>{total} placed{why ? ` · ${why}` : ''}</span></span>
+            <span className="text-sm">Split <b className="num">{d.amount}</b> {d.tokenType ?? d.type}: <span className={why ? 'text-gold' : 'text-good'}>{total} placed{why ? ` · ${why}` : ''}</span>
+                {hints && <span className="text-faint text-xs ml-2">Click a glowing card or press its key for one more; <Kbd k="Backspace" className="hint" /> takes the last back.</span>}</span>
             <div className="flex flex-wrap gap-2">
                 {d.targets.map((t) => {
                     const c = name(t.id);
                     const v = amounts[t.id] ?? 0;
+                    const k = keyOf(t.id);
                     return (
                         <div key={t.id} className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1">
+                            {k && <Kbd k={k} className="hint" />}
                             <span className="text-[13px] max-w-[9rem] truncate" title={c?.n ?? t.id}>{c?.n ?? t.id}</span>
-                            <button className="play-icon" aria-label={`One less on ${c?.n ?? t.id}`} onClick={() => bump(t.id, -1, t.cap)} disabled={v === 0}><Minus size={13} /></button>
+                            <button className="play-icon" aria-label={`One less on ${c?.n ?? t.id}`} onClick={() => bump(t.id, -1)} disabled={v === 0}><Minus size={13} /></button>
                             <span className="num w-5 text-center">{v}</span>
-                            <button className="play-icon" aria-label={`One more on ${c?.n ?? t.id}`} onClick={() => bump(t.id, 1, t.cap)} disabled={(t.cap !== null && v >= t.cap) || total >= d.amount}><Plus size={13} /></button>
+                            <button className="play-icon" aria-label={`One more on ${c?.n ?? t.id}`} onClick={() => bump(t.id, 1)} disabled={(t.cap !== null && v >= t.cap) || total >= d.amount}><Plus size={13} /></button>
                         </div>
                     );
                 })}
             </div>
             <div className="flex gap-2">
-                <button className="play-btn primary" disabled={sending || !!why} onClick={() => onAct(action, split)}>Confirm split</button>
-                <button className="play-btn ghost" disabled={sending} onClick={() => setAmounts({})}><RotateCcw size={13} /> Reset</button>
+                <button className="play-btn primary" disabled={sending || !!why} onClick={confirm}>Confirm split{hints && <Kbd k="Space" className="hint" />}</button>
+                <button className="play-btn ghost" disabled={sending} onClick={() => setSt({ amounts: {}, order: [] })}><RotateCcw size={13} /> Reset</button>
             </div>
         </div>
     );
 }
 
-function EndCard({ end, seat, bot, id, onLeave }: { end: EndMsg; seat: Seat; bot: string; id: string; onLeave: () => void }) {
+function EndCard({ end, seat, bot, id, onLeave, hints }: { end: EndMsg; seat: Seat; bot: string; id: string; onLeave: () => void; hints: boolean }) {
     const table = useContext(TableContext);
     const watch = table.watch(id);
     const download = end.replay ? table.replayUrl(id) : null;
     const won = end.winner === seat;
+    // the end's choices take the number keys, like the bar's
+    const cap = (k: string) => (hints ? <Kbd k={k} className="hint" /> : null);
     const { head, detail } = endText(end, seat, bot);
     return (
         <div className="play-end" role="dialog" aria-label="Game over">
@@ -486,10 +661,10 @@ function EndCard({ end, seat, bot, id, onLeave }: { end: EndMsg; seat: Seat; bot
                 <span className="font-display text-2xl font-bold" style={{ color: won ? 'var(--color-good)' : 'var(--color-p2)' }}>{head}</span>
                 <span className="text-dim text-sm">{detail}</span>
                 <div className="flex flex-wrap gap-2">
-                    <button className="play-btn primary" onClick={onLeave}><Play size={14} /> Play again</button>
-                    {typeof watch === 'string' && <a className="play-btn" href={watch}>Watch the replay</a>}
-                    {typeof watch === 'function' && <button className="play-btn" onClick={watch}>Watch the replay</button>}
-                    {download && <a className="play-btn ghost" href={download} download={`${id}.jsonl`}>Download replay</a>}
+                    <button className="play-btn primary" onClick={onLeave} data-hotkey="Digit1"><Play size={14} /> Play again{cap('Digit1')}</button>
+                    {typeof watch === 'string' && <a className="play-btn" href={watch} data-hotkey="Digit2">Watch the replay{cap('Digit2')}</a>}
+                    {typeof watch === 'function' && <button className="play-btn" onClick={watch} data-hotkey="Digit2">Watch the replay{cap('Digit2')}</button>}
+                    {download && <a className="play-btn ghost" href={download} download={`${id}.jsonl`} data-hotkey="Digit3">Download replay{cap('Digit3')}</a>}
                 </div>
             </div>
         </div>

@@ -28,6 +28,8 @@ import { batchA14IntermediateLayout } from '../effects/batchA14Signatures';
 import { batchA15IntermediateLayout } from '../effects/batchA15Signatures';
 import { batchA16IntermediateLayout } from '../effects/batchA16Signatures';
 import { CardEffectOverlay } from '../effects/CardEffectOverlay';
+import { KeyHelp, KeysButton } from '../components/Keys';
+import { CONTROL, isTyping } from '../play/keys';
 import { useCardEffectAudio } from '../effects/audio';
 import { EffectSoundControls } from '../components/EffectSoundControls';
 import { detectCardEffects } from '../effects/detect';
@@ -331,6 +333,14 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
         control?.({ seek, play: () => setPlaying(true), pause: () => setPlaying(false), setScore: pickScore, scores: () => scoresNow.current });
     }, [control, seek, pickScore]);
 
+    // the keyboard: the arrows, or the left hand's W A S D (and Q E for key moments); the key list (?) names them all
+    const [keyHelp, setKeyHelp] = useState(false);
+    // closing the list hands focus back to the viewer, so its keys keep working when it listens only while focused
+    const closeKeyHelp = useCallback(() => {
+        setKeyHelp(false);
+        root.current?.focus({ preventScroll: true });
+    }, []);
+    const keysNow = useRef({ step, last, seek, roundJump, togglePlay: () => {}, live, pivotal, speed, setSpeed, perspective, setPerspective, art, setArt, keyHelp, end: false, hideResult });
     useEffect(() => {
         const target: HTMLElement | Window | null = keyboard === 'window' ? window : root.current;
         if (!target) {
@@ -338,37 +348,76 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
         }
         const onKey = (e: Event) => {
             const k = e as KeyboardEvent;
+            const s = keysNow.current;
             const el = (k.composedPath?.()[0] ?? k.target) as HTMLElement;
-            if (/INPUT|SELECT|TEXTAREA/.test(el.tagName ?? '') || el.closest?.('[role="listbox"]') || k.metaKey || k.ctrlKey) {
+            // a hidden viewer (its host shows something else over it) takes no keys
+            if (k.defaultPrevented || k.metaKey || k.ctrlKey || k.altKey || isTyping(el) || !root.current?.getClientRects().length) {
                 return;
             }
-            const handled = () => k.preventDefault();
-            if (k.key === 'ArrowRight') {
-                handled();
-                seek(step + (k.shiftKey ? 10 : 1));
-            } else if (k.key === 'ArrowLeft') {
-                handled();
-                seek(step - (k.shiftKey ? 10 : 1));
-            } else if (k.key === ']' || k.key === 'ArrowDown') {
-                handled();
-                roundJump(1);
-            } else if (k.key === '[' || k.key === 'ArrowUp') {
-                handled();
-                roundJump(-1);
-            } else if (k.key === ' ') {
-                handled();
-                setPlaying((p) => (step >= last ? false : !p));
-            } else if (k.key === 'Home') {
-                handled();
-                seek(0);
-            } else if (k.key === 'End') {
-                handled();
-                seek(last);
+            const code = k.code;
+            const key = k.key;
+            const by = k.shiftKey ? 10 : 1;
+            if (key === '?') {
+                if (s.keyHelp) {
+                    closeKeyHelp();
+                } else {
+                    setKeyHelp(true);
+                }
+            } else if (key === 'Escape') {
+                if (s.keyHelp) {
+                    closeKeyHelp();
+                } else if (s.end && !s.hideResult) {
+                    setHideResult(true);
+                }
+                return;
+            } else if (s.keyHelp) {
+                return;
+            } else if (key === 'ArrowRight' || code === 'KeyD') {
+                s.seek(s.step + by);
+            } else if (key === 'ArrowLeft' || code === 'KeyA') {
+                s.seek(s.step - by);
+            } else if (code === 'BracketRight' || key === 'ArrowDown' || code === 'KeyS') {
+                s.roundJump(1);
+            } else if (code === 'BracketLeft' || key === 'ArrowUp' || code === 'KeyW') {
+                s.roundJump(-1);
+            } else if (code === 'KeyE' || code === 'KeyQ') {
+                // the key moments: the marks on the timeline
+                const next = code === 'KeyE' ? s.pivotal.find((a) => a.index > s.step) : [...s.pivotal].reverse().find((a) => a.index < s.step);
+                if (next) {
+                    s.seek(next.index);
+                }
+            } else if (key === ' ') {
+                // listening on the whole page: a focused button of the host page (outside the viewer) keeps its Space
+                if (keyboard === 'window' && root.current && !k.composedPath?.().includes(root.current) && el?.closest?.(CONTROL)) {
+                    return;
+                }
+                s.togglePlay();
+            } else if (key === 'Home') {
+                s.seek(0);
+            } else if (key === 'End') {
+                s.seek(s.last);
+            } else if (/^Digit\d$/.test(code)) {
+                s.seek(Math.round((s.last * Number(code.slice(5))) / 10));
+            } else if (code === 'Minus' || code === 'NumpadSubtract') {
+                s.setSpeed(Math.max(0, s.speed - 1));
+            } else if (code === 'Equal' || code === 'NumpadAdd') {
+                s.setSpeed(Math.min(SPEEDS.length - 1, s.speed + 1));
+            } else if (code === 'KeyH') {
+                const order: Perspective[] = ['god', 'p1', 'p2'];
+                s.setPerspective(order[(order.indexOf(s.perspective) + 1) % order.length]);
+            } else if (code === 'KeyC') {
+                s.setArt(!s.art);
+            } else if (code === 'KeyL' && s.live) {
+                setPlaying(false);
+                setFollow(true);
+            } else {
+                return;
             }
+            k.preventDefault();
         };
         target.addEventListener('keydown', onKey);
         return () => target.removeEventListener('keydown', onKey);
-    }, [keyboard, seek, roundJump, step, last]);
+    }, [keyboard, closeKeyHelp]);
 
     const cur = game.steps[step];
     const prev = step > 0 ? game.steps[step - 1] : null;
@@ -478,6 +527,8 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
             setFollow(false);
         }
     };
+
+    keysNow.current = { step, last, seek, roundJump, togglePlay, live, pivotal, speed, setSpeed, perspective, setPerspective, art, setArt, keyHelp, end: !!end, hideResult };
 
     const full = layout === 'full' && !effectPreview;
     // the Weights tab, beside the board score: for any score that resolved (a refused file has nothing to show)
@@ -593,7 +644,8 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                                     Compare
                                 </button>
                             )}
-                            <span className="ml-auto text-faint hidden @3xl:inline">← → step · shift ×10 · [ ] round · space play</span>
+                            <span className="ml-auto text-faint hidden @3xl:inline">← → step · ↑ ↓ round · space play</span>
+                            <KeysButton onClick={() => setKeyHelp(true)} className="chip hover:text-fg !gap-1.5 @3xl:ml-0 ml-auto" />
                         </div>
                         <div className="@container rounded-lg bg-ink/70 border border-line">
                             {(ev.size > 0 || weightsTab) && (
@@ -662,6 +714,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                     </aside>
                 )}
             </div>
+            {keyHelp && <KeyHelp mode="replay" live={live} onClose={closeKeyHelp} />}
             <AnimatePresence>
                 {focus && hovering && !(full && beside) && <FloatingZoom key={`${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}`} focus={focus} score={valuesOn ? boardScore : null} />}
             </AnimatePresence>
