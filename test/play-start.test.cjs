@@ -15,7 +15,7 @@ function load(rel) {
     new Function('require', 'module', 'exports', code)(() => ({}), mod, mod.exports);
     return mod.exports;
 }
-const { startModes, firstMode, botLabel, botAbout, sizeText } = load('src/play/modes.ts');
+const { startModes, firstMode, botLabel, botAbout, sizeText, initials, nameHue, deckNames, prepText } = load('src/play/modes.ts');
 const { endText } = load('src/play/protocol.ts');
 
 test('a table that offers no people modes keeps the bot as the only mode', () => {
@@ -67,4 +67,32 @@ test('the other person conceding reads as a win', () => {
     assert.deepEqual(endText(end({ winner: 'p2', outcome: 'conceded', conceded: true, concededBy: 'p1' }), 'p2', 'pl_7f3a9c'), { head: 'You won', detail: 'They conceded.' });
     assert.deepEqual(endText(end({ winner: 'p1', outcome: 'conceded', conceded: true, concededBy: 'p2' }), 'p2', 'pl_7f3a9c').head, 'You conceded');
     assert.deepEqual(endText(end({ winner: 'p2', outcome: 'conceded', conceded: true, concededBy: null }), 'p1', 'rush').head, 'You conceded');
+});
+
+test("the versus screen's emblem takes the first letters of a bot's first two words", () => {
+    assert.equal(initials('c-clock3me-s'), 'CC');
+    assert.equal(initials("Eric's JEPA bot"), 'EJ');
+    assert.equal(initials('rust_greedy2'), 'RG');
+    assert.equal(initials('rush'), 'RU');
+    assert.equal(initials(''), '?');
+    assert.equal(nameHue('rush'), nameHue('rush'));
+    assert.ok(nameHue('rush') >= 0 && nameHue('rush') < 360);
+});
+
+test('a deck reads as its leader and base from the card text, else from the parts of its name', () => {
+    const d = { name: 'the-armorer_ash_nabat-village', leader: 'ASH_009', base: 'ASH_025', style: 'aggro' };
+    assert.deepEqual(deckNames(d, () => null), { leader: 'The Armorer', base: 'Nabat Village' });
+    assert.deepEqual(deckNames({ ...d, name: 'obi--wan-kenobi_lof_vergence-temple' }, () => undefined), { leader: 'Obi Wan Kenobi', base: 'Vergence Temple' });
+    const text = { ASH_009: 'The Armorer', ASH_025: 'Nabat Village' };
+    assert.deepEqual(deckNames({ ...d, name: 'my list' }, (c) => text[c]), { leader: 'The Armorer', base: 'Nabat Village' });
+    assert.deepEqual(deckNames({ ...d, name: 'my list' }, () => null), { leader: 'my list', base: 'ASH_025' });
+});
+
+test("the Play button says what is left to download, from the table's report or else the bot's size", () => {
+    assert.equal(prepText(null, { bytes: 3.1e6 }), '3.1 MB to go');
+    assert.equal(prepText(null, null), '');
+    assert.equal(prepText({ ready: false, left: 2.5e6, total: 6e6 }, { bytes: 3.1e6 }), '2.5 MB to go');
+    assert.equal(prepText({ ready: true, left: 0, total: 6e6 }, { bytes: 3.1e6 }), '');
+    assert.equal(prepText({ ready: false, left: null, total: null, waiting: true }, null), 'the arena is sending it');
+    assert.equal(prepText({ ready: false, left: 0, total: 6e6 }, { bytes: 3.1e6 }), '');
 });

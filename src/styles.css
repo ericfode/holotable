@@ -1729,3 +1729,227 @@ input[type="range"].scrub {
 .kmap-note > span {
     color: var(--tone);
 }
+
+/* The versus screen (play/Versus.tsx): the bot and the person face to face, one Play button. On a phone the bot is on
+   top and the person's deck below, near the thumb; on a wide screen the person is left (seat 1) and the bot right. */
+.versus {
+    display: grid;
+    grid-template-areas: "bot" "mark" "you" "go";
+    gap: 0;
+    border: 1px solid var(--color-line);
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--color-bg);
+}
+.vs-side {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 12px 16px;
+    text-align: center;
+    min-width: 0;
+}
+.vs-bot {
+    grid-area: bot;
+    background: radial-gradient(ellipse at 50% 30%, color-mix(in oklab, var(--color-p2) 22%, transparent), transparent 70%), linear-gradient(170deg, color-mix(in oklab, var(--color-p2) 14%, var(--color-bg)), var(--color-bg));
+    padding-bottom: 28px;
+}
+.vs-you {
+    grid-area: you;
+    background: radial-gradient(ellipse at 50% 55%, color-mix(in oklab, var(--color-p1) 18%, transparent), transparent 70%), linear-gradient(10deg, color-mix(in oklab, var(--color-p1) 12%, var(--color-bg)), var(--color-bg));
+    padding-top: 28px;
+}
+.vs-mark {
+    grid-area: mark;
+    position: relative;
+    z-index: 1;
+    height: 0;
+    display: grid;
+    place-items: center;
+}
+.vs-mark span {
+    font: italic 800 44px/1 var(--font-display);
+    letter-spacing: 0.02em;
+    color: var(--color-gold);
+    text-shadow: 0 3px 0 #0008, 0 0 24px color-mix(in oklab, var(--color-gold) 55%, transparent);
+    transform: skewX(-8deg);
+}
+.vs-stage {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    width: 100%;
+    max-width: 420px;
+    min-height: 150px;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.vs-face {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+}
+.vs-face .card {
+    max-width: 100%;
+}
+.vs-arrow {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--color-line);
+    background: color-mix(in oklab, var(--color-ink) 70%, transparent);
+    color: var(--color-fg);
+    cursor: pointer;
+}
+.vs-arrow:disabled {
+    visibility: hidden;
+}
+@media (hover: hover) {
+    .vs-arrow:hover:not(:disabled) {
+        border-color: var(--color-dim);
+    }
+}
+.vs-emblem {
+    width: 116px;
+    height: 128px;
+    display: grid;
+    place-items: center;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    background: linear-gradient(160deg, hsl(var(--hue) 70% 58%), hsl(calc(var(--hue) + 40) 65% 32%));
+    color: #fff;
+    font: 800 38px/1 var(--font-display);
+    letter-spacing: 0.04em;
+    text-shadow: 0 2px 0 #0006;
+}
+.vs-emblem.featured {
+    background: linear-gradient(160deg, #ffe08a, #c7891c);
+    color: #2a1a00;
+    text-shadow: none;
+}
+.vs-name {
+    margin: 4px 0 0;
+    max-width: 100%;
+    font: 700 24px/1.15 var(--font-display);
+    overflow-wrap: anywhere;
+}
+.vs-you-word {
+    color: var(--color-p1);
+}
+.vs-meta {
+    margin: 0;
+    max-width: 46ch;
+    font: 500 13px/1.4 var(--font-mono);
+    color: var(--color-dim);
+}
+.vs-dots {
+    display: flex;
+    gap: 5px;
+    margin-top: 2px;
+}
+.vs-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-faint);
+    transition: width 0.15s, background 0.15s;
+}
+.vs-dots i.on {
+    width: 16px;
+    background: var(--color-fg);
+}
+.vs-count {
+    font: 500 12px/1 var(--font-mono);
+    color: var(--color-dim);
+}
+.vs-lists {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 10px;
+    margin-top: 6px;
+    max-width: 100%;
+}
+.vs-list {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+}
+.vs-list .play-select {
+    height: 30px;
+    max-width: min(240px, 58vw);
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+.vs-go {
+    grid-area: go;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 4px 16px 18px;
+    background: color-mix(in oklab, var(--color-p1) 6%, var(--color-bg));
+}
+.vs-play.play-btn {
+    width: min(100%, 440px);
+    min-height: 56px;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 16px;
+    font: 700 22px/1 var(--font-display);
+    box-shadow: 0 10px 30px -12px color-mix(in oklab, var(--color-good) 80%, transparent);
+}
+.vs-left {
+    font: 500 15px/1 var(--font-mono);
+    opacity: 0.8;
+}
+.vs-why {
+    margin: 0;
+    max-width: 52ch;
+    font-size: 13px;
+    color: var(--color-p2);
+    text-align: center;
+}
+@media (min-width: 760px) {
+    .versus {
+        grid-template-columns: minmax(0, 1fr) 0 minmax(0, 1fr);
+        grid-template-areas: "you mark bot" "go go go";
+    }
+    .vs-side {
+        padding: 28px 16px 24px;
+    }
+    .vs-you {
+        background: radial-gradient(ellipse at 50% 40%, color-mix(in oklab, var(--color-p1) 18%, transparent), transparent 70%), linear-gradient(100deg, color-mix(in oklab, var(--color-p1) 12%, var(--color-bg)), var(--color-bg));
+    }
+    .vs-bot {
+        background: radial-gradient(ellipse at 50% 40%, color-mix(in oklab, var(--color-p2) 20%, transparent), transparent 70%), linear-gradient(260deg, color-mix(in oklab, var(--color-p2) 14%, var(--color-bg)), var(--color-bg));
+    }
+    .vs-mark {
+        height: auto;
+        width: 0;
+    }
+    .vs-mark span {
+        font-size: 56px;
+    }
+    .vs-stage {
+        min-height: 180px;
+    }
+    .vs-go {
+        padding-top: 18px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .vs-dots i {
+        transition: none;
+    }
+}

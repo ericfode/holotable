@@ -14,9 +14,9 @@ import { hashParam } from '../lib/route';
 import { reportOnScreen } from '../kit/feedback';
 import { PickContext, type Pick } from '../play/pick';
 import { BoardLines, type Trail } from '../play/BoardLines';
-import { TableContext, type DeckOption, type TableOptions } from '../play/client';
+import { TableContext, type DeckOption, type Prep, type TableOptions } from '../play/client';
 import { firstMode, startModes, type StartMode } from '../play/modes';
-import { OpponentPicker } from '../play/OpponentPicker';
+import { Versus } from '../play/Versus';
 import { actionCardId, endText, isDud, moveIcon, moveText, moveVerb, noEffectText, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
 import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../play/StartModes';
 
@@ -62,6 +62,8 @@ export function PlayPage() {
 }
 
 const RANDOM = 'random';
+/** the start screen asks the table to fetch the shown bot once it has stayed shown this long */
+const PREP_MS = 500;
 
 /**
  * Pick a deck and an opponent. A table that offers people modes or deck import (TableOptions.people, importDeck) gets
@@ -76,16 +78,32 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
     const [botDeck, setBotDeck] = useState('');
     const [busy, setBusy] = useState(false);
     const [mode, setMode] = useState<StartMode>('bot');
+    const [prep, setPrep] = useState<Prep | null>(null);
     const pair = usePairing(table, onStart, setError);
     useEffect(() => {
         table.options().then((o) => {
             setOpts(o);
-            setBot(o.bots[0] ?? '');
+            setBot(o.bot && o.bots.includes(o.bot) ? o.bot : o.bots[0] ?? '');
             setDeck(o.decks.find((d) => d.name !== o.botDeck)?.name ?? o.decks[0]?.name ?? '');
             setBotDeck(o.botDeck);
             setMode(firstMode(startModes(o, !!table.pair), o.join));
         }, (e) => setError(String(e.message ?? e)));
     }, [table]);
+    // the table fetches what the shown bot needs while the person chooses, once the pick has stayed a moment
+    useEffect(() => {
+        setPrep(null);
+        if (!bot || mode !== 'bot' || !table.prepare) {
+            return;
+        }
+        let stop: (() => void) | null = null;
+        const t = setTimeout(() => {
+            stop = table.prepare!(bot, setPrep);
+        }, PREP_MS);
+        return () => {
+            clearTimeout(t);
+            stop?.();
+        };
+    }, [table, bot, mode]);
     const leaderOf = (name: string) => opts?.decks.find((d) => d.name === name);
     const go = async () => {
         setBusy(true);
@@ -133,33 +151,34 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
         setMode(m);
         setError(null);
     };
+    const deckExtra = importDeck && <DeckImport onImport={importDeck} onAdded={added} />;
     return (
-        <div className="max-w-3xl mx-auto px-4 py-10 flex flex-col gap-8">
-            <header className="flex flex-col gap-2">
-                <span className="text-xs uppercase tracking-[0.16em] text-gold font-mono">Play mode</span>
-                <h1 className="font-display text-3xl font-bold">{people ? 'Open tables' : 'Play against a bot'}</h1>
-                {opts.you && <span className="text-xs text-dim">You play as <span className="font-mono text-fg">{opts.you}</span></span>}
-                <p className="text-dim max-w-xl">{table.note ?? (people ? 'Play another person or a bot on the real rules engine. Each side sees only its own seat: your hand and your deck stay hidden from the other.' : 'You sit at seat 1 with the real rules engine. The bot sees only what its seat sees: your hand and both decks stay hidden from it. Every game is saved as a replay.')}</p>
-            </header>
+        <div className={`mx-auto px-4 flex flex-col ${people ? 'max-w-3xl py-10 gap-8' : 'max-w-5xl py-4 sm:py-8 gap-4'}`}>
+            {people && (
+                <header className="flex flex-col gap-2">
+                    <span className="text-xs uppercase tracking-[0.16em] text-gold font-mono">Play mode</span>
+                    <h1 className="font-display text-3xl font-bold">Open tables</h1>
+                    {opts.you && <span className="text-xs text-dim">You play as <span className="font-mono text-fg">{opts.you}</span></span>}
+                    <p className="text-dim max-w-xl">{table.note ?? 'Play another person or a bot on the real rules engine. Each side sees only its own seat: your hand and your deck stay hidden from the other.'}</p>
+                </header>
+            )}
             {pair.open && <PairingPanel pairing={pair.open.pairing} state={pair.open.state} onCancel={pair.cancel} />}
             {/* kept while a pairing is open (hidden), so a code or a choice is still there after Cancel or a failed join */}
             <div className={pair.open ? 'hidden' : 'flex flex-col gap-8'}>
                 {people && <ModeTabs modes={modes} mode={mode} onMode={pickMode} panel="play-mode-panel" />}
                 <div className="flex flex-col gap-8" {...(people ? { id: 'play-mode-panel', role: 'tabpanel', 'aria-labelledby': `play-tab-${mode}` } : {})}>
-                    {mode === 'bot' && <OpponentPicker opts={opts} bot={bot} onBot={setBot} />}
-                    <div className="grid gap-6 sm:grid-cols-2">
-                        {pickDeck('Your deck', deck, setDeck, 'p1', 'play-deck', importDeck && <DeckImport onImport={importDeck} onAdded={added} />)}
-                        {mode === 'bot'
-                            ? pickDeck("The bot's deck", botDeck, setBotDeck, 'p2', 'play-bot-deck')
-                            : <PeopleStart mode={mode} people={opts.people ?? []} deck={deck} joinCode={opts.join ?? ''} error={error} onPair={pair.start} />}
-                    </div>
-                    {mode === 'bot' && <div className="flex items-center gap-3">
-                        <button className="play-btn primary" onClick={go} disabled={busy || !bot || !deck}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Sit down</button>
-                        {error && <span className="text-p2 text-sm">{error}</span>}
-                    </div>}
+                    {mode === 'bot'
+                        ? <Versus opts={opts} bot={bot} onBot={setBot} deck={deck} onDeck={setDeck} botDeck={botDeck} onBotDeck={setBotDeck} busy={busy} error={error} prep={prep} onPlay={go} deckExtra={deckExtra} />
+                        : (
+                            <div className="grid gap-6 sm:grid-cols-2">
+                                {pickDeck('Your deck', deck, setDeck, 'p1', 'play-deck', deckExtra)}
+                                <PeopleStart mode={mode} people={opts.people ?? []} deck={deck} joinCode={opts.join ?? ''} error={error} onPair={pair.start} />
+                            </div>
+                        )}
                 </div>
             </div>
-            {opts.notice && <p className="text-xs text-dim">{opts.notice}</p>}
+            {!people && <p className="text-xs text-dim text-center max-w-xl mx-auto">{table.note ?? 'You sit at seat 1 with the real rules engine. The bot sees only what its seat sees: your hand and both decks stay hidden from it. Every game is saved as a replay.'}</p>}
+            {opts.notice && <p className={`text-xs text-dim${people ? '' : ' text-center max-w-xl mx-auto'}`}>{opts.notice}</p>}
         </div>
     );
 }
