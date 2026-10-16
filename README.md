@@ -112,6 +112,11 @@ Who embeds it:
 
 ## What's in it
 
+- **Fullscreen**: the play screen and replay toolbar offer Fullscreen for the whole table, including moves, card
+  inspection and keyboard help. Use Exit fullscreen or the browser's Escape action to leave. Browsers without native
+  fullscreen offer Maximize within the current tab instead (browser controls stay visible); Restore layout or Escape
+  leaves it. A refused fullscreen request uses the same maximized layout. Both layouts keep the table scrollable.
+
 - **Play mode** (`#/play`, also in the navigation): a person plays a bot on the replay board, drawn from their seat (the
   bot's hand face down). It opens on a versus screen (`src/play/Versus.tsx`): the bot's emblem on one side and your
   deck's leader on the other (bot on top and you below on a phone, you left and the bot right on a wide screen), each

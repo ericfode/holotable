@@ -5,6 +5,7 @@ import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
 import { FloatingZoom } from '../components/CardZoom';
 import { Kbd, KeyHelp, KeysButton, useKeyHints } from '../components/Keys';
+import { FullscreenButton, FullscreenSurface } from '../components/Fullscreen';
 import { CONTROL, eventKey, isTyping, playKeys, PRIMARY, type PlayKeys } from '../play/keys';
 import { cardById, trackUnits } from '../data/derive';
 import type { CardRef, Seat, Snapshot } from '../data/types';
@@ -58,7 +59,12 @@ export function PlayPage() {
         setGame(null);
         address('#/play');
     };
-    return game ? <Table key={game.id} {...game} onLeave={leave} /> : <StartScreen onStart={begin} />;
+    return (
+        <FullscreenSurface>
+            {!game && <div className="flex justify-end px-4 pt-3"><FullscreenButton className="play-btn ghost" /></div>}
+            {game ? <Table key={game.id} {...game} onLeave={leave} /> : <StartScreen onStart={begin} />}
+        </FullscreenSurface>
+    );
 }
 
 const RANDOM = 'random';
@@ -619,7 +625,8 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     <span className="text-faint truncate max-w-[16rem]">{botDeck}</span>
                     {cur && <span className="text-dim num">Round {cur.round} · {cur.phase}</span>}
                     {down && !end && <span className="text-p2">Reconnecting…</span>}
-                    <span className="ml-auto flex gap-2">
+                    <span className="ml-auto flex flex-wrap items-center gap-2 max-w-full">
+                        <FullscreenButton className="play-btn ghost" />
                         <KeysButton onClick={() => setHelp(true)} className="play-btn ghost" />
                         {!auto && !end && <button className="play-btn ghost" onClick={() => setAuto(true)} title="Decisions with only one answer wait for you; turn on to have them go by themselves">One-answer moves: ask</button>}
                         {!end && <HoldButton className="play-btn ghost" onGo={() => void table.concede(id)} title="Give up this game"><Flag size={14} /> Concede</HoldButton>}

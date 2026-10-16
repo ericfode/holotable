@@ -1100,6 +1100,44 @@ input[type="range"].scrub {
 .card.picked.pickable {
     cursor: pointer;
 }
+.fullscreen-surface[data-screen-mode="fullscreen"],
+.fullscreen-surface[data-screen-mode="maximized"] {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    margin: 0;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    background: var(--color-bg);
+    color: var(--color-fg);
+    overflow: auto;
+    overscroll-behavior: contain;
+    --dock-top: 0px;
+}
+.fullscreen-surface[data-screen-mode="maximized"] {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+}
+.fullscreen-control {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+}
+.fullscreen-control button:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+}
+.fullscreen-notice:empty { display: none; }
+.fullscreen-notice { max-width: 22rem; }
+.fullscreen-surface[data-screen-mode="fullscreen"] .play-center,
+.fullscreen-surface[data-screen-mode="maximized"] .play-center {
+    top: 6px;
+}
+
 .play-select {
     height: 34px;
     padding-inline: 10px;
