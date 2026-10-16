@@ -1,12 +1,13 @@
 import { useContext, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { Check, Crosshair, Play, Plus, Sparkles, Swords, Undo2, X, type LucideIcon } from 'lucide-react';
 import { cardImageUrl, tileLook } from '../lib/cards';
 import { isToken } from '../lib/cardText';
 import { useSettings } from '../lib/settings';
 import type { CardRef, Seat, UnitRef, UpgradeRef } from '../data/types';
 import { rowColor } from '../data/terms';
 import { digitsOf, unitText } from '../data/format';
-import { PickContext } from '../play/pick';
-import { keyboardFocus } from '../lib/touch';
+import { PickContext, type Pick } from '../play/pick';
+import { byTouch, keyboardFocus } from '../lib/touch';
 import { Kbd } from './Keys';
 
 /** Leader fronts and bases are printed landscape ('wide'); everything else, a deployed leader included, is portrait ('tall'). */
@@ -201,6 +202,12 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     const picker = useContext(PickContext);
     const pickState = picker && card.id ? picker.state(card.id) : null;
     const pickKey = pickState && picker?.keyOf ? picker.keyOf(card.id!) : null;
+    // a touch screen's move icon on the card, or the countdown of this card's move waiting to go
+    const move = pickState === 'pick' || pickState === 'picked' ? picker?.move?.(card.id!) ?? null : null;
+    const waiting = !!card.id && picker?.held === card.id;
+    // a move that would change nothing glows grey; the card whose ability asks the question is marked
+    const dud = pickState === 'pick' && !!picker?.dud?.(card.id!);
+    const asking = !!card.id && picker?.asking === card.id;
     const [failed, setFailed] = useState<string | null>(null);
     // an image whose orientation doesn't match the box (art data can disagree with the card type) is fitted whole, not cropped
     const [mismatch, setMismatch] = useState<string | null>(null);
@@ -270,7 +277,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     const cap = size !== 'sm' ? unit?.cap ?? [] : [];
     // tokens (Battle Droid, Shield…) have no set number; a text face that says "Token unit" makes the tag redundant
     const token = (unit?.t === 1 || isToken(card)) && (showImg || !face);
-    const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : '', pickState === 'pick' ? 'pickable' : pickState === 'picked' ? 'picked' : ''].filter(Boolean).join(' ');
+    const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : '', pickState === 'pick' ? 'pickable' : pickState === 'picked' ? 'picked' : '', dud ? 'dud' : '', asking ? 'asking' : ''].filter(Boolean).join(' ');
     const pressProps = onFocus || pickState
         ? {
             onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
@@ -309,7 +316,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     return (
         <div className={cls} style={style} title={card.n} {...focus} {...pressProps} {...pickProps}
             data-effect-card={effectIdentity ? card.n : undefined} data-effect-code={effectIdentity ? card.s ?? undefined : undefined} data-effect-id={effectIdentity ? card.id : undefined} data-effect-base={kind === 'base' ? '' : undefined} data-effect-zone={kind === 'leader' ? 'leader' : undefined}
-            aria-label={(leader ? 'Leader ' : '') + card.n + (unit ? `, ${unit.p} power, ${hp} HP left${unit.d > 0 ? ` (${unit.d} damage)` : ''}` : '') + (unit?.sn ? ', Sentinel' : '') + (unit?.cap?.length ? `, holds captured ${unit.cap.map((c) => c.n).join(', ')}` : '') + (exhausted ? ', exhausted' : '') + (value?.v != null ? `, worth ${fmtCardValue(value.v, value.digits)}` : '')}>
+            aria-label={(leader ? 'Leader ' : '') + card.n + (unit ? `, ${unit.p} power, ${hp} HP left${unit.d > 0 ? ` (${unit.d} damage)` : ''}` : '') + (unit?.sn ? ', Sentinel' : '') + (unit?.cap?.length ? `, holds captured ${unit.cap.map((c) => c.n).join(', ')}` : '') + (exhausted ? ', exhausted' : '') + (value?.v != null ? `, worth ${fmtCardValue(value.v, value.digits)}` : '') + (dud ? ', no effect now' : '') + (asking ? ', asking' : '')}>
             {showImg ? (
                 <>
                     {mismatch === url && <img src={url} alt="" draggable={false} className="backdrop" />}
@@ -328,6 +335,8 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
                 </div>
             )}
             {pickKey && <Kbd k={pickKey} className="pick-key" />}
+            {dud && <span className="dud-mark" title="Playing or using this now would change nothing">No effect</span>}
+            {(move || waiting) && <MoveChip id={card.id!} name={card.n} move={move} waiting={waiting} dud={dud} picker={picker!} />}
             {(leader || unit?.sn || token || ups || cap.length > 0) && (
                 <div className="top">
                     {(leader || unit?.sn || token || cap.length > 0) && (
@@ -373,6 +382,34 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
                 </div>
             )}
         </div>
+    );
+}
+
+const MOVE_ICONS: Record<NonNullable<ReturnType<NonNullable<Pick['move']>>>['icon'], LucideIcon> = {
+    play: Play, attack: Swords, use: Sparkles, choose: Crosshair, select: Check, unselect: X, add: Plus
+};
+
+/**
+ * A card's move as an icon on the card (play mode, touch screens only: keyboards get the key cap in the same place). A
+ * tap makes the move, which then waits a moment: the icon becomes a countdown ring, and a tap on it takes the move back.
+ */
+function MoveChip({ id, name, move, waiting, dud, picker }: { id: string; name: string; move: { icon: keyof typeof MOVE_ICONS; label: string } | null; waiting: boolean; dud: boolean; picker: Pick }) {
+    const Icon = waiting ? Undo2 : MOVE_ICONS[move!.icon];
+    return (
+        // the card itself is the keyboard's way to pick, so the icon takes no focus
+        <button type="button" tabIndex={-1} className={`move-chip ${waiting ? 'held' : move!.icon}${dud && !waiting ? ' dud' : ''}`} aria-label={waiting ? `Take back the move with ${name}` : `${move!.label} ${name}${dud ? ' (no effect)' : ''}`}
+            onClick={(e) => {
+                // the card under it would open
+                e.stopPropagation();
+                if (waiting) {
+                    picker.undo?.();
+                } else {
+                    picker.pick(id, byTouch());
+                }
+            }}>
+            {waiting && <svg className="ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="16" /></svg>}
+            <Icon aria-hidden="true" strokeWidth={2.6} />
+        </button>
     );
 }
 

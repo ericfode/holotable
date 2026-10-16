@@ -25,6 +25,11 @@ export interface Action {
     cardUuid?: string;
     card?: PlacedRef;
     distribute?: Distribute;
+    /**
+     * the move would change nothing (the referee asks the engine for a seat that wants to know: an event with no legal
+     * target, an action ability with nothing to do); the move stays legal, and the engine asks again before it plays
+     */
+    noEffect?: boolean;
 }
 
 export interface PromptCard extends PlacedRef { st: 'selectable' | 'selected' | 'unselectable' | 'invalid' | 'viewOnly' }
@@ -123,7 +128,7 @@ export function endText(end: EndMsg, seat: Seat, opponent: string): { head: stri
 }
 
 /** The card an action picks or acts on, by id: a card action's card, a display pick's shown card, a per-card button's card. */
-function actionCardId(a: Action): string | undefined {
+export function actionCardId(a: Action): string | undefined {
     return a.kind === 'card' ? a.card?.id : a.kind === 'displayCard' ? String(a.arg) : a.kind === 'perCardButton' ? a.cardUuid : undefined;
 }
 
@@ -146,6 +151,26 @@ export function moveVerb(a: Action, m: DecideMsg): string {
     return 'Choose';
 }
 
+/** The icon of a card's move, drawn on the card itself on a touch screen (Card's move chip): one per moveVerb case. */
+export type MoveIcon = 'play' | 'attack' | 'use' | 'choose' | 'select' | 'unselect';
+
+export function moveIcon(a: Action, m: DecideMsg): MoveIcon {
+    switch (moveVerb(a, m)) {
+        case 'Play':
+            return 'play';
+        case 'Attack or use':
+            return 'attack';
+        case 'Use':
+            return 'use';
+        case 'Select':
+            return 'select';
+        case 'Unselect':
+            return 'unselect';
+        default:
+            return 'choose';
+    }
+}
+
 /** A move in a few words, for the Undo strip while it waits: "Play Neel", "Pass", "Split 3 damage". */
 export function moveText(a: Action, m: DecideMsg): string {
     if (a.kind === 'distribute') {
@@ -162,6 +187,18 @@ export function moveText(a: Action, m: DecideMsg): string {
     }
     return a.label.replace(/^#/, '');
 }
+
+/**
+ * A menu choice the engine marked as doing nothing ("(No effect) Attack", forceteki's ActionWindow): its words without
+ * the mark, and whether it had it.
+ */
+export function noEffectText(label: string): { text: string; dud: boolean } {
+    const m = /^\(No effect\)\s*/i.exec(label);
+    return m ? { text: label.slice(m[0].length), dud: true } : { text: label, dud: false };
+}
+
+/** A move that would change nothing: marked by the referee, or by the engine in the choice's own words. */
+export const isDud = (a: Action) => !!a.noEffect || noEffectText(a.label).dud;
 
 /** Engine prompt texts as a sentence: "Choose an action", a menu title, or a card prompt. */
 export function promptText(m: DecideMsg): string {

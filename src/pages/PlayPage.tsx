@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Flag, Loader2, Minus, Play, Plus, RotateCcw, Send, Undo2 } from 'lucide-react';
+import { Flag, Hand, Loader2, Minus, Play, Plus, RotateCcw, Send, Undo2 } from 'lucide-react';
 import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
 import { FloatingZoom } from '../components/CardZoom';
@@ -10,13 +10,13 @@ import { cardById, trackUnits } from '../data/derive';
 import type { CardRef, Seat, Snapshot } from '../data/types';
 import { cardTextBySet } from '../lib/cardText';
 import { createSettingsStore, SettingsProvider } from '../lib/settings';
-import { byTouch } from '../lib/touch';
 import { hashParam } from '../lib/route';
 import { PickContext, type Pick } from '../play/pick';
+import { BoardLines, type Trail } from '../play/BoardLines';
 import { TableContext, type DeckOption, type TableOptions } from '../play/client';
 import { firstMode, startModes, type StartMode } from '../play/modes';
 import { OpponentPicker } from '../play/OpponentPicker';
-import { endText, moveText, moveVerb, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
+import { actionCardId, endText, isDud, moveIcon, moveText, moveVerb, noEffectText, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
 import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../play/StartModes';
 
 /**
@@ -27,9 +27,11 @@ import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../
  * may also pair the person with another person (the open-tables start screen) and add decks.
  *
  * The prompt bar sits between the two sides of the board, where the eyes are, and docks to the top or bottom edge of
- * the window while the middle of the board is scrolled away. On a touch screen a tap opens a card with its moves as
- * buttons (it never plays the card by itself), and a move made by touch waits TAKE_BACK_MS with an Undo button before
- * it goes to the table: the table cannot take a move back once it has it.
+ * the window while the middle of the board is scrolled away. On a touch screen each card with a move shows it as an
+ * icon on the card (Card's move chip): a tap on the icon makes the move, a tap on the rest of the card opens it with its
+ * moves as buttons (it never plays the card by itself). A move made by touch waits TAKE_BACK_MS before it goes to the
+ * table, with a countdown ring on the card's icon and an Undo button in the bar: the table cannot take a move back
+ * once it has it.
  */
 export function PlayPage() {
     const table = useContext(TableContext);
@@ -166,11 +168,18 @@ interface Shown { prev: Snapshot | null; cur: Snapshot; n: number }
 const BOT_MOVE_MS = 550;
 /** a move made by touch waits this long, with an Undo button, before it goes to the table */
 const TAKE_BACK_MS = 1500;
+/** a decision with only one answer gives it by itself after this long, unless the person stops it */
+const AUTO_MS = 2000;
+/** the other side's moves since the person's last one, drawn on the board (BoardLines) */
+const TRAIL = 4;
 /** after a new decision shows, keys wait this long before they act, so a key meant for the last one can't answer it */
 const ARM_MS = 250;
 
-/** A move made by touch, waiting TAKE_BACK_MS before it goes to the table (Undo drops it, the decision stays open). */
-interface Held { seq: number; a: Action; split?: { id: string; amount: number }[]; text: string }
+/**
+ * A move waiting to go to the table: one made by touch (TAKE_BACK_MS), or the only answer to a decision (auto,
+ * AUTO_MS). Undo drops it and the decision stays open; a stopped auto answer does not start again.
+ */
+interface Held { seq: number; a: Action; split?: { id: string; amount: number }[]; text: string; auto?: boolean }
 
 function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
     const table = useContext(TableContext);
@@ -184,6 +193,11 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [sending, setSending] = useState(false);
     const [held, setHeld] = useState<Held | null>(null);
     const heldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // the last decision whose only answer was given by itself: a stopped (or refused) one waits for the person
+    const autoSeq = useRef(-1);
+    const [auto, setAuto] = useAutoAnswer();
+    const [trail, setTrail] = useState<Trail[]>([]);
+    const boardRef = useRef<HTMLDivElement>(null);
     const [problem, setProblem] = useState<string | null>(null);
     const [focus, setFocus] = useState<Focus | null>(null);
     // the pointer or the keys let go of a card; a card a tap opened stays open until it is closed
@@ -220,6 +234,8 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 setShown((s) => ({ prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 const { state: _state, ...entry } = m;
                 setLog((l) => [entry, ...l].slice(0, 60));
+                // the other side's moves since the person's own last one
+                setTrail((t) => (m.seat === seat ? [] : [...t, { id: m.card?.id, text: logText(m) }].slice(-TRAIL)));
                 // catching up after a reload or a long wait: no pauses
                 wait = m.seat !== seat && queue.current.length < 8 ? BOT_MOVE_MS : 0;
             } else if (m.t === 'decide') {
@@ -249,6 +265,8 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const send = useCallback(async (seq: number, a: Action, split?: { id: string; amount: number }[]) => {
         setSending(true);
         setProblem(null);
+        // the person's own move ends the other side's trail
+        setTrail([]);
         try {
             await table.act(id, { t: 'act', seq, i: a.i, ...(split ? { split } : {}) });
             // the next decision may already be here (it can arrive before this answer's reply does)
@@ -259,26 +277,27 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         }
     }, [id, table]);
 
-    /** Answer the decision; `hold` (a move made by touch) waits TAKE_BACK_MS first, with an Undo button. */
-    const act = useCallback((a: Action, split?: { id: string; amount: number }[], hold = false) => {
+    /**
+     * Answer the decision; `hold` (a move made by touch) waits TAKE_BACK_MS first, with an Undo button, and `auto` (the
+     * decision's only answer, given by itself) waits AUTO_MS.
+     */
+    const act = useCallback((a: Action, split?: { id: string; amount: number }[], hold = false, auto = false) => {
         if (!decide || sending || held) {
             return;
         }
         setFocus((f) => (f?.touch ? null : f));
-        if (!hold) {
+        if (!hold && !auto) {
             void send(decide.seq, a, split);
             return;
         }
-        const h: Held = { seq: decide.seq, a, split, text: moveText(a, decide) };
+        const h: Held = { seq: decide.seq, a, split, text: moveText(a, decide), auto };
         setHeld(h);
         heldTimer.current = setTimeout(() => {
             heldTimer.current = null;
             setHeld(null);
             void send(h.seq, h.a, h.split);
-        }, TAKE_BACK_MS);
+        }, auto ? AUTO_MS : TAKE_BACK_MS);
     }, [decide, sending, held, send]);
-    // the bar's buttons, a split's Confirm and an opened card's moves: held when a finger pressed them
-    const tap = useCallback((a: Action, split?: { id: string; amount: number }[]) => act(a, split, byTouch()), [act]);
     const undo = useCallback(() => {
         if (heldTimer.current) {
             clearTimeout(heldTimer.current);
@@ -301,6 +320,19 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     useEffect(() => undo, [undo]);
     // a new decision closes a card a tap opened: its moves were the last decision's
     useEffect(() => setFocus((f) => (f?.touch ? null : f)), [decide?.seq]);
+    // a decision with one answer gives it by itself after AUTO_MS, once: outside the action window (a lone Pass there
+    // is a big move), with no split to make and no cards shown to read; Stop (undo) leaves it to the person
+    const lone = auto && decide && !decide.prompt.actionWindow && !decide.prompt.cards?.length && decide.actions.length === 1 && decide.actions[0].kind !== 'distribute' ? decide.actions[0] : null;
+    useEffect(() => {
+        if (lone && decide && !end && !sending && !held && autoSeq.current !== decide.seq) {
+            autoSeq.current = decide.seq;
+            act(lone, undefined, false, true);
+        }
+    }, [lone, decide, end, sending, held, act]);
+    const stopAuto = useCallback(() => {
+        undo();
+        setAuto(false);
+    }, [undo, setAuto]);
 
     const cur = shown?.cur ?? null;
     const ids = useMemo(() => {
@@ -326,6 +358,9 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     // a damage, healing or token split: its targets glow too, and a click (or the target's key) puts one more there
     const splitIds = useMemo(() => new Set(decide?.actions.find((a) => a.kind === 'distribute')?.distribute?.targets.map((t) => t.id) ?? []), [decide]);
     const drawn = useMemo(() => (cur ? drawnIds(cur, seat) : new Set<string>()), [cur, seat]);
+    const asking = useMemo(() => askingCard(decide, cur, seat), [decide, cur, seat]);
+    // the cards on the board that answer the asking card's question: BoardLines joins them to it
+    const answers = useMemo(() => (asking ? [...picks.keys(), ...splitIds].filter((cid) => cid !== asking && drawn.has(cid)) : []), [asking, picks, splitIds, drawn]);
     const keys = useMemo(() => playKeys(decide, cur, seat, drawn), [decide, cur, seat, drawn]);
     // the keyboard (play/keys.ts): keys wait ARM_MS after each new decision, so a key meant for the last one misses
     const armed = useRef(0);
@@ -334,10 +369,10 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     }, [decide?.seq]);
     const pick = useMemo((): Pick => ({
         state: (cid) => (picks.has(cid) ? (selected.has(cid) ? 'picked' : 'pick') : selected.has(cid) ? 'picked' : splitIds.has(cid) ? 'pick' : null),
-        pick: (cid) => {
+        pick: (cid, hold = false) => {
             const a = picks.get(cid);
             if (a) {
-                act(a);
+                act(a, undefined, hold);
             } else if (splitIds.has(cid)) {
                 splitApi.current?.add(cid);
             }
@@ -345,8 +380,22 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         keyOf: (cid) => (hints ? keys.card.get(cid) ?? null : null),
         keyReady: () => performance.now() >= armed.current,
         // one more on a split target: the split panel takes it back, so a tap places it at once
-        instant: (cid) => !picks.has(cid) && splitIds.has(cid)
-    }), [picks, selected, splitIds, act, hints, keys]);
+        instant: (cid) => !picks.has(cid) && splitIds.has(cid),
+        move: (cid) => {
+            const a = picks.get(cid);
+            if (a && decide) {
+                return { icon: moveIcon(a, decide), label: moveVerb(a, decide) };
+            }
+            return splitIds.has(cid) ? { icon: 'add', label: `One more ${decide?.actions.find((x) => x.kind === 'distribute')?.distribute?.type ?? ''} on`.replace(/\s+/g, ' ') } : null;
+        },
+        dud: (cid) => {
+            const a = picks.get(cid);
+            return !!a && isDud(a);
+        },
+        asking
+    }), [picks, selected, splitIds, act, hints, keys, decide, asking]);
+    // while a touch move waits to go, nothing glows, and its card shows the countdown (a tap on it takes the move back)
+    const waiting = useMemo((): Pick | null => (held ? { state: () => null, pick: () => undefined, held: actionCardId(held.a) ?? null, undo } : null), [held, undo]);
 
     // the page's keys while this table is on screen and nothing is being typed
     const now = useRef({ keys, decide, sending, act, pick, end, help, held, undo, sendNow });
@@ -461,7 +510,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
 
     return (
         <SettingsProvider store={settings}>
-            <div ref={rootRef} className="play flex flex-col min-h-[calc(100vh-3rem)]">
+            <div ref={rootRef} className="play flex flex-col min-h-[calc(100vh-3rem)]" style={{ '--take-back': `${TAKE_BACK_MS}ms` } as CSSProperties}>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-line text-sm">
                     <span className="font-display font-semibold" style={{ color: `var(--color-${seat})` }}>You</span>
                     <span className="text-faint truncate max-w-[16rem]">{youDeck}</span>
@@ -472,17 +521,20 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     {down && !end && <span className="text-p2">Reconnecting…</span>}
                     <span className="ml-auto flex gap-2">
                         <KeysButton onClick={() => setHelp(true)} className="play-btn ghost" />
-                        {!end && <button className="play-btn ghost" onClick={() => void table.concede(id)} title="Give up this game"><Flag size={14} /> Concede</button>}
+                        {!auto && !end && <button className="play-btn ghost" onClick={() => setAuto(true)} title="Decisions with only one answer wait for you; turn on to have them go by themselves">One-answer moves: ask</button>}
+                        {!end && <HoldButton className="play-btn ghost" onGo={() => void table.concede(id)} title="Give up this game"><Flag size={14} /> Concede</HoldButton>}
                     </span>
                 </div>
                 <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-                    <div className="flex-1 min-w-0 px-2 py-3">
+                    <div ref={boardRef} className="relative flex-1 min-w-0 px-2 py-3">
                         {cur && ids ? (
-                            <PickContext.Provider value={live ? pick : null}>
+                            <PickContext.Provider value={live ? pick : waiting}>
                                 <Board state={cur} prev={shown!.prev} ids={ids[ids.length - 1]} prevIds={shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
-                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} center={center} />
+                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} center={center} fanHand={seat} />
                             </PickContext.Provider>
                         ) : <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Shuffling…</div>}
+                        {cur && <BoardLines root={boardRef} step={shown!.n} trail={trail} botSeat={seat === 'p1' ? 'p2' : 'p1'}
+                            asking={live && !end ? asking : null} answers={answers} question={decide ? promptText(decide) : null} />}
                     </div>
                     <aside className="lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-line px-3 py-3 flex flex-col gap-2 max-h-[40vh] lg:max-h-none overflow-auto">
                         <h2 className="text-xs uppercase tracking-[0.12em] text-dim">Moves</h2>
@@ -500,13 +552,13 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 {/* a new bar for each decision, so a button focused by a click can't take the next decision's Space */}
                 {centerEl && cur && createPortal(
                     <PromptBar key={decide?.seq ?? 'wait'} decide={decide} sending={sending} held={held} onUndo={undo} onSendNow={sendNow} problem={problem} board={cur} bot={bot} drawn={drawn}
-                        pick={pick} onAct={tap} ended={!!end} keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} />,
+                        pick={pick} onAct={act} ended={!!end} keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} trail={trail} onStopAuto={stopAuto} />,
                     centerEl
                 )}
                 {focus && (focus.touch
                     ? (
                         <FloatingZoom key={zoomKey} focus={focus} score={null} onClose={closeLook}>
-                            {decide && !end && <CardMoves id={focus.card.id ?? ''} decide={decide} pick={picks.get(focus.card.id ?? '')} disabled={!live} onAct={tap} />}
+                            {decide && !end && <CardMoves id={focus.card.id ?? ''} decide={decide} pick={picks.get(focus.card.id ?? '')} disabled={!live} onAct={act} />}
                         </FloatingZoom>
                     )
                     : <FloatingZoom key={zoomKey} focus={focus} score={null} />)}
@@ -560,7 +612,7 @@ function CardMoves({ id, decide, pick, disabled, onAct }: { id: string; decide: 
         <div className="flex flex-col gap-2 border-t border-line pt-2">
             <span className="text-xs text-dim">{promptText(decide)}</span>
             {moves.length > 0
-                ? <div className="flex flex-wrap gap-2">{moves.map((a) => <button key={a.i} className="play-btn primary" disabled={disabled} onClick={() => onAct(a)}>{moveVerb(a, decide)}</button>)}</div>
+                ? <div className="flex flex-wrap gap-2">{moves.map((a) => <button key={a.i} className={`play-btn primary${isDud(a) ? ' dud' : ''}`} disabled={disabled} onClick={() => onAct(a)}>{moveVerb(a, decide)}{isDud(a) && <span className="dud-note">no effect</span>}</button>)}</div>
                 : <span className="text-xs text-faint">No move with this card now.</span>}
         </div>
     );
@@ -575,6 +627,27 @@ function logText(m: Omit<MoveMsg, 'state'>): string {
         return m.label;
     }
     return m.label;
+}
+
+/**
+ * The card on the board whose ability asks the question now: the one the prompt's title names (forceteki titles a
+ * card's prompt with the card), the person's own first. Null in the action window or when no card on the board has
+ * that name.
+ */
+function askingCard(m: DecideMsg | null, s: Snapshot | null, you: Seat): string | null {
+    const name = m && !m.prompt.actionWindow ? m.prompt.promptTitle : null;
+    if (!name || !s) {
+        return null;
+    }
+    const named = (n: string) => n === name || name.startsWith(`${n},`) || name.startsWith(`${n} - `);
+    for (const seat of [you, you === 'p1' ? 'p2' : 'p1'] as Seat[]) {
+        const p = s.players[seat];
+        const hit = [p.leader, p.base, ...p.ground, ...p.space].find((c) => c?.id && named(c.n));
+        if (hit?.id) {
+            return hit.id;
+        }
+    }
+    return null;
 }
 
 /** The cards the board draws as clickable faces: bases, leaders, your hand and every unit. */
@@ -595,11 +668,15 @@ function drawnIds(s: Snapshot, you: Seat): Set<string> {
  * The decision, drawn between the two sides of the board: what is asked, the cards a prompt shows, a split, and the
  * buttons. While a move made by touch waits to go, it shows that move with Undo instead.
  */
-function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook }: {
+function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook, trail, onStopAuto }: {
     decide: DecideMsg | null; sending: boolean; held: Held | null; onUndo: () => void; onSendNow: () => void; problem: string | null; board: Snapshot | null; bot: string; drawn: Set<string>; pick: Pick;
     onAct: (a: Action, split?: { id: string; amount: number }[]) => void; ended: boolean; keys: PlayKeys; hints: boolean; splitApi: RefObject<SplitApi | null>;
     /** a tray card shown enlarged (hovered, or focused with ⇧ + its key), and let go */
     onLook: (f: Focus | null) => void; onUnlook: () => void;
+    /** the other side's moves since the person's last one, as a line of words (BoardLines draws them on the board) */
+    trail: Trail[];
+    /** stop a one-answer move and turn them off */
+    onStopAuto: () => void;
 }) {
     const [all, setAll] = useState(false);
     // the key cap a button shows: Space on the main button, the bar's number (or ⇧number) on the others
@@ -612,22 +689,28 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
     }
     // a waiting move shows over the decision, which stays mounted (hidden) so Undo finds a split or a search as it was
     const strip = held && (
-        <div className="play-bar held" role="status" aria-label="Your move is about to go">
+        <div className="play-bar held" role="status" aria-label={held.auto ? 'The only answer is about to go' : 'Your move is about to go'}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className="flex flex-col min-w-0 flex-1">
-                    <span className="text-dim text-xs">Sending in a moment</span>
+                    <span className="text-dim text-xs">{held.auto ? 'The only answer: sending it' : 'Sending in a moment'}</span>
                     <span className="font-display font-semibold text-[15px] truncate">{held.text}</span>
                 </span>
-                <button className="play-btn primary" onClick={onUndo}><Undo2 size={15} /> Undo{hints && <Kbd k="Escape" className="hint" />}</button>
+                <button className="play-btn primary" onClick={onUndo}>{held.auto ? <><Hand size={15} /> Stop</> : <><Undo2 size={15} /> Undo</>}{hints && <Kbd k="Escape" className="hint" />}</button>
                 <button className="play-btn ghost" onClick={onSendNow}><Send size={14} /> Send now</button>
+                {held.auto && <button className="play-btn ghost" onClick={onStopAuto} title="One-answer moves wait for you from now on (the bar at the top turns them back on)">Always ask</button>}
             </div>
-            <span className="held-clock" style={{ animationDuration: `${TAKE_BACK_MS}ms` }} aria-hidden="true" />
+            <span className="held-clock" style={{ animationDuration: `${held.auto ? AUTO_MS : TAKE_BACK_MS}ms` }} aria-hidden="true" />
         </div>
+    );
+    // what the other side just did, in words, over the decision it led to
+    const said = trail.length > 0 && (
+        <span className="trail-line" title={trail.map((t) => t.text).join(' → ')}><b>{bot}:</b> {trail.map((t) => t.text).join(' → ')}</span>
     );
     if (!decide) {
         return strip || (
             <div className="play-bar waiting">
                 <span className="flex items-center gap-2 text-dim">{sending ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : <><Loader2 size={15} className="animate-spin" /> {bot} is thinking…</>}</span>
+                {!sending && said}
             </div>
         );
     }
@@ -643,9 +726,11 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
         <>
             {strip}
             <div className="play-bar" role="region" aria-label="Your decision" data-seq={decide.seq} hidden={!!held}>
+                {said}
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <span className="font-display font-semibold text-[15px]">{promptText(decide)}</span>
-                    {glowing && <span className="text-dim text-xs">Tap or click a glowing card{hints ? <span className="keys-only"> or press its key</span> : ''}, or choose below.</span>}
+                    {glowing && <span className="text-dim text-xs no-touch">Click a glowing card{hints ? <span className="keys-only"> or press its key</span> : ''}, or choose below.</span>}
+                    {glowing && <span className="text-dim text-xs touch-only">Tap an icon on a card to make that move, or tap the card to read it.</span>}
                     {problem && <span className="text-p2 text-xs">{problem}</span>}
                 </div>
                 {tray.length > 0 && (
@@ -673,17 +758,124 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
                         </button>
                     ))}
                     {options.length > 0 && <Options options={options} sending={sending} onAct={onAct} cap={cap} />}
-                    {buttons.map((a) => <button key={a.i} className={`play-btn${PRIMARY.test(a.label) ? ' primary' : ''}`} disabled={sending} onClick={() => onAct(a)}>{a.label}{cap(a)}</button>)}
+                    {buttons.map((a) => {
+                        const cls = `play-btn${PRIMARY.test(a.label) ? ' primary' : ''}${isDud(a) ? ' dud' : ''}`;
+                        // a move that ends the person's options for now: a finger holds it (HoldButton), a click goes at once
+                        return bigMove(a, decide)
+                            ? <HoldButton key={a.i} className={cls} disabled={sending} onGo={() => onAct(a)}>{words(a)}{cap(a)}</HoldButton>
+                            : <button key={a.i} className={cls} disabled={sending} onClick={() => onAct(a)}>{words(a)}{cap(a)}</button>;
+                    })}
                     <button className="play-btn ghost ml-auto" onClick={() => setAll((x) => !x)} aria-expanded={all}>{all ? 'Hide' : 'All'} moves ({acts.length})</button>
                 </div>
                 {all && (
                     <div className="flex flex-wrap gap-1.5 border-t border-line pt-2">
-                        {acts.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{actionText(a)}</button>)}
+                        {acts.map((a) => <button key={a.i} className={`play-btn small${isDud(a) ? ' dud' : ''}`} disabled={sending} onClick={() => onAct(a)}>{actionText(a)}</button>)}
                     </div>
                 )}
             </div>
         </>
     );
+}
+
+/** A choice's words; one that would change nothing says so after them (the button also gets .dud). */
+function words(a: Action): ReactNode {
+    const { text } = noEffectText(a.label.replace(/^#/, ''));
+    return isDud(a) ? <>{text}<span className="dud-note">no effect</span></> : text;
+}
+
+/** Pass and the claims (Claim Initiative) in the action window end the person's options for now: a finger holds them. */
+const bigMove = (a: Action, m: DecideMsg) => a.kind === 'button' && !!m.prompt.actionWindow && /^(pass|claim\b)/i.test(a.label);
+
+/** how long a finger holds a big move (HoldButton) */
+const HOLD_MS = 450;
+
+/**
+ * A button for a move that can't be taken back and ends the person's options for now (Pass, Claim Initiative,
+ * Concede). A finger holds it while a ring fills, and it goes when the ring is full; a shorter tap only says "Hold".
+ * A mouse click or a key goes at once, as any button.
+ */
+function HoldButton({ onGo, className, disabled, title, children }: { onGo: () => void; className: string; disabled?: boolean; title?: string; children: ReactNode }) {
+    const [filling, setFilling] = useState(false);
+    const [hint, setHint] = useState(false);
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // a finger pressed it: the click that follows its lifting is not a move
+    const finger = useRef(false);
+    const stop = useCallback(() => {
+        if (timer.current) {
+            clearTimeout(timer.current);
+            timer.current = null;
+        }
+        setFilling(false);
+    }, []);
+    useEffect(() => () => {
+        stop();
+        if (hintTimer.current) {
+            clearTimeout(hintTimer.current);
+        }
+    }, [stop]);
+    const early = () => {
+        if (!timer.current) {
+            return;
+        }
+        stop();
+        setHint(true);
+        if (hintTimer.current) {
+            clearTimeout(hintTimer.current);
+        }
+        hintTimer.current = setTimeout(() => setHint(false), 1500);
+    };
+    return (
+        <button className={`${className} hold-btn${filling ? ' filling' : ''}`} disabled={disabled} title={title} style={{ '--hold': `${HOLD_MS}ms` } as CSSProperties}
+            onPointerDown={(e) => {
+                finger.current = e.pointerType === 'touch';
+                if (!finger.current || disabled) {
+                    return;
+                }
+                setHint(false);
+                setFilling(true);
+                timer.current = setTimeout(() => {
+                    timer.current = null;
+                    setFilling(false);
+                    onGo();
+                }, HOLD_MS);
+            }}
+            onPointerUp={early} onPointerCancel={stop} onPointerLeave={stop} onContextMenu={(e) => e.preventDefault()}
+            onClick={(e) => {
+                // detail 0: a key pressed the button
+                if (finger.current && e.detail !== 0) {
+                    finger.current = false;
+                    return;
+                }
+                onGo();
+            }}>
+            {children}
+            <span className="hold-fill" aria-hidden="true" />
+            {hint && <span className="hold-hint" role="status">Hold</span>}
+        </button>
+    );
+}
+
+const AUTO_KEY = 'holotable.autoAnswer';
+
+/** Whether a decision with one answer gives it by itself (on unless the person said "Always ask"), saved in the browser. */
+function useAutoAnswer(): [boolean, (on: boolean) => void] {
+    const [on, setOn] = useState(() => {
+        try {
+            return localStorage.getItem(AUTO_KEY) !== 'off';
+        } catch {
+            return true;
+        }
+    });
+    const set = useCallback((v: boolean) => {
+        setOn(v);
+        try {
+            localStorage.setItem(AUTO_KEY, v ? 'on' : 'off');
+        } catch {
+            // storage blocked: the switch lasts until the page closes
+        }
+    }, []);
+    return [on, set];
 }
 
 const ZONES: Record<string, string> = { groundArena: 'ground', spaceArena: 'space', resource: 'resources', discard: 'discard', hand: 'hand', deck: 'deck', base: 'base', capture: 'captured', outsideTheGame: 'set aside' };
@@ -707,7 +899,7 @@ function actionText(a: Action): string {
 function Options({ options, sending, onAct, cap }: { options: Action[]; sending: boolean; onAct: (a: Action) => void; cap: (a: Action) => ReactNode }) {
     const [q, setQ] = useState('');
     if (options.length <= 16) {
-        return <>{options.map((a) => <button key={a.i} className="play-btn" disabled={sending} onClick={() => onAct(a)}>{a.label.replace(/^#/, '')}{cap(a)}</button>)}</>;
+        return <>{options.map((a) => <button key={a.i} className={`play-btn${isDud(a) ? ' dud' : ''}`} disabled={sending} onClick={() => onAct(a)}>{words(a)}{cap(a)}</button>)}</>;
     }
     const hits = q.trim() ? options.filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 24) : [];
     return (
