@@ -25,8 +25,10 @@ export interface BotInfo {
 /**
  * What a table still has to fetch before a game with a bot can start, as Table.prepare reports it: all here (ready),
  * bytes left of the total, waiting on the arena to send a file, or the last download's error (start() tries again).
+ * `note` says in a few words what the table waits on when bytes cannot say it (the arena's machine waking up); the
+ * versus screen shows it under its loading bar.
  */
-export interface Prep { ready: boolean; left: number | null; total: number | null; waiting?: boolean; error?: string | null }
+export interface Prep { ready: boolean; left: number | null; total: number | null; waiting?: boolean; error?: string | null; note?: string | null }
 /** How a person can find another person at an open table: the lobby, an invite link, joining one, or codes pasted by hand. */
 export type PeopleMode = 'lobby' | 'invite' | 'join' | 'direct';
 /**

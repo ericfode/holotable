@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Loader2, Play } from 'lucide-react';
 import { Card } from '../components/Card';
 import { cardTextBySet } from '../lib/cardText';
 import type { Prep, TableOptions } from './client';
-import { botAbout, deckNames, initials, nameHue, prepText } from './modes';
+import { botAbout, deckNames, initials, meterOf, nameHue, prepText } from './modes';
 
 const RANDOM = 'random';
 /** a slide this far sideways (px), and more sideways than up or down, changes the pick */
@@ -34,6 +34,21 @@ function Stage({ label, count, onStep, disabled, children }: { label: string; co
             <button type="button" className="vs-arrow" aria-label={`Previous ${label}`} disabled={!many} onClick={() => onStep(-1)}><ChevronLeft size={20} /></button>
             <div className="vs-face">{children}</div>
             <button type="button" className="vs-arrow" aria-label={`Next ${label}`} disabled={!many} onClick={() => onStep(1)}><ChevronRight size={20} /></button>
+        </div>
+    );
+}
+
+/** How much of what the game needs is here, under the Play button (modes.ts meterOf). */
+function Meter({ prep }: { prep: Prep | null }) {
+    const m = meterOf(prep);
+    if (!m) {
+        return null;
+    }
+    const pct = m.done === null ? null : Math.round(m.done * 100);
+    return (
+        <div className="vs-meter" role="progressbar" aria-label="Getting the game ready" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct ?? undefined} aria-valuetext={m.text}>
+            <div className={`vs-track${pct === null ? ' busy' : ''}`}><i style={pct === null ? undefined : { width: `${pct}%` }} /></div>
+            <div className="vs-meter-text"><span>{m.text}</span>{pct !== null && <b>{pct}%</b>}</div>
         </div>
     );
 }
@@ -114,6 +129,7 @@ export function Versus({ opts, bot, onBot, deck, onDeck, botDeck, onBotDeck, bus
                     <span>{busy ? 'Getting ready' : 'Play'}</span>
                     {busy ? pct != null && pct < 100 && <span className="vs-left">· {pct}%</span> : left && <span className="vs-left">· {left}</span>}
                 </button>
+                {!why && <Meter prep={prep} />}
                 {why ? <p className="vs-why">{why}</p> : prep?.error ? <p className="vs-why">{prep.error}</p> : null}
                 {error && <p className="vs-why">{error}</p>}
             </div>

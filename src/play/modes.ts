@@ -92,7 +92,7 @@ export function prepText(prep: Prep | null, info?: BotInfo | null): string {
         return '';
     }
     if (prep?.waiting) {
-        return 'the arena is sending it';
+        return 'on its way';
     }
     if (prep && typeof prep.left === 'number' && prep.left > 0) {
         return `${sizeText(prep.left)} to go`;
@@ -101,4 +101,30 @@ export function prepText(prep: Prep | null, info?: BotInfo | null): string {
         return `${sizeText(info.bytes)} to go`;
     }
     return '';
+}
+
+/**
+ * The loading bar under the versus screen's Play button: how much of what the game needs is here (`done` from 0 to 1,
+ * null while that is not known: the bar then moves without filling) and a line saying what. Null when there is nothing
+ * to wait for, or an error to show instead.
+ */
+export function meterOf(prep: Prep | null): { done: number | null; text: string } | null {
+    if (!prep || prep.ready || prep.error) {
+        return null;
+    }
+    const known = typeof prep.total === 'number' && prep.total > 0 && typeof prep.left === 'number';
+    const done = known ? Math.min(1, Math.max(0, (prep.total! - prep.left!) / prep.total!)) : null;
+    if (prep.note) {
+        return { done: prep.waiting ? null : done, text: prep.note };
+    }
+    if (prep.waiting) {
+        return { done: null, text: 'The arena is sending the files' };
+    }
+    if (known && prep.left! > 0) {
+        return { done, text: `${sizeText(prep.total! - prep.left!)} of ${sizeText(prep.total!)}` };
+    }
+    if (known) {
+        return { done: null, text: 'Starting the rules engine' };
+    }
+    return null;
 }

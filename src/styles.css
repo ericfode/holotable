@@ -1919,6 +1919,47 @@ input[type="range"].scrub {
     font: 500 15px/1 var(--font-mono);
     opacity: 0.8;
 }
+/* the loading bar under Play: how much of the engine and the bot is here, or a moving bar while that is not known */
+.vs-meter {
+    width: min(100%, 440px);
+    display: grid;
+    gap: 5px;
+}
+.vs-track {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--color-line) 80%, transparent);
+}
+.vs-track i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, color-mix(in oklab, var(--color-good) 70%, var(--color-p1)), var(--color-good));
+    box-shadow: 0 0 10px color-mix(in oklab, var(--color-good) 60%, transparent);
+    transition: width 0.3s ease-out;
+}
+.vs-track.busy i {
+    width: 34%;
+    animation: vs-busy 1.4s ease-in-out infinite;
+}
+@keyframes vs-busy {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(300%); }
+}
+.vs-meter-text {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font: 500 12.5px/1.3 var(--font-mono);
+    color: var(--color-dim);
+}
+.vs-meter-text b {
+    font-weight: 600;
+    color: var(--color-fg);
+    font-variant-numeric: tabular-nums;
+}
 .vs-why {
     margin: 0;
     max-width: 52ch;
@@ -1964,7 +2005,13 @@ input[type="range"].scrub {
     }
 }
 @media (prefers-reduced-motion: reduce) {
-    .vs-dots i {
+    .vs-dots i,
+    .vs-track i {
         transition: none;
+    }
+    .vs-track.busy i {
+        animation: none;
+        width: 100%;
+        opacity: 0.45;
     }
 }

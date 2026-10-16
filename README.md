@@ -116,7 +116,9 @@ Who embeds it:
   bot's hand face down). It opens on a versus screen (`src/play/Versus.tsx`): the bot's emblem on one side and your
   deck's leader on the other (bot on top and you below on a phone, you left and the bot right on a wide screen), each
   changed with its arrows, a sideways slide or its list, and one Play button. While you choose, a table with
-  `Table.prepare` fetches what the shown bot needs and the button says what is left ("Play · 3.1 MB to go"). Every legal move is a glowing card, a button in the prompt bar, or an entry in **All moves**;
+  `Table.prepare` fetches what the shown bot needs and the button says what is left ("Play · 3.1 MB to go"), with a
+  loading bar under it (how much is here, or the table's own `note` while that is not known, such as the arena's games
+  machine waking up). Every legal move is a glowing card, a button in the prompt bar, or an entry in **All moves**;
   damage splits get a stepper per target, long menus (name a card) a search box. The prompt bar sits between the two
   sides of the board, and stays at the top or bottom edge of the window while you look at one side. Everywhere: a move
   that would change nothing (the table's `noEffect` flag, or the engine's "(No effect)" choice) is grey and dashed and
