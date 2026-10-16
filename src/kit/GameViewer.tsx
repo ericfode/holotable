@@ -29,6 +29,7 @@ import { batchA15IntermediateLayout } from '../effects/batchA15Signatures';
 import { batchA16IntermediateLayout } from '../effects/batchA16Signatures';
 import { CardEffectOverlay } from '../effects/CardEffectOverlay';
 import { KeyHelp, KeysButton } from '../components/Keys';
+import { FullscreenButton, FullscreenSurface } from '../components/Fullscreen';
 import { CONTROL, isTyping } from '../play/keys';
 import { useCardEffectAudio } from '../effects/audio';
 import { EffectSoundControls } from '../components/EffectSoundControls';
@@ -547,7 +548,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
     // the chosen source unless its file was refused (a refused file draws no lane)
     const liveSource = score && !score.source.error ? score.source : null;
     return (
-        <div ref={root} tabIndex={keyboard === 'focus' ? 0 : undefined} className="@container flex flex-col gap-3 outline-none" aria-label={`Replay: ${bots.p1} vs ${bots.p2}`}>
+        <FullscreenSurface targetRef={root} tabIndex={keyboard === 'focus' ? 0 : undefined} className="@container flex flex-col gap-3 outline-none" aria-label={`Replay: ${bots.p1} vs ${bots.p2}`}>
             {!effectPreview && <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {back && <a href={back.href} className="btn" aria-label={`Back to ${back.label}`}><ChevronLeft size={16} />{back.label}</a>}
                 <div className="flex items-baseline gap-3 min-w-0 flex-wrap">
@@ -562,6 +563,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                     ))}
                 </div>
                 <div className="flex gap-2 ml-auto items-center flex-wrap">
+                    <FullscreenButton />
                     <button className="btn !h-8 !px-2" aria-pressed={effectsOn} onClick={() => setEffectsOn(!effectsOn)} title="Card animations pause playback briefly so each effect can finish">
                         <Sparkles size={14} />Effects
                     </button>
@@ -730,7 +732,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                 {focus && hovering && !(full && beside) && <FloatingZoom key={`${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}`} focus={focus} score={valuesOn ? boardScore : null}
                     onClose={focus.touch ? closeTapped : undefined} />}
             </AnimatePresence>
-        </div>
+        </FullscreenSurface>
     );
 }
 
