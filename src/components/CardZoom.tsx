@@ -335,7 +335,9 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const wide = focus.shape === 'wide';
-    const cw = Math.min(wide ? 360 : 264, vw - 48);
+    // the card's height may use the window's height less 8px margins and the facts under it (96px), so a short window fits it
+    const fit = Math.max(100, vh - 16 - 96);
+    const cw = Math.min(wide ? 360 : 264, vw - 48, wide ? fit * 7 / 5 : fit * 5 / 7);
     const ch = wide ? cw * 5 / 7 : cw * 7 / 5;
     const W = cw + 24;
     const H = ch + 96;
