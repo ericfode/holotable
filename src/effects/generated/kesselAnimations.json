@@ -1,0 +1,1902 @@
+{
+  "schema": "holotable-animation-index/v1",
+  "source": {
+    "schema": "swu-card-ir/v1",
+    "revision": "573385d06f2de36c5a92756b65ef3746389a5bc2",
+    "sha256": "8e1471ac07b23758e7f3b3767a93c117e146adfd086e5d910dd4c2d5fd670ccd",
+    "compilerHash": "b94637bc3437355dbc3caa473e3f9351e7f9406b581c4b26a9bd427212e6dbb2",
+    "sourceTreeHash": "13ea7c27e06a9833caa3a4123f607250ed601c894e53cad40ab2391b2095e59f"
+  },
+  "coverage": {
+    "totalDefinitions": 2458,
+    "mappedDefinitions": 37,
+    "families": {
+      "defeat": 14,
+      "ready": 4,
+      "exhaust": 5,
+      "return": 4,
+      "damage": 5,
+      "heal": 3,
+      "resource": 2
+    },
+    "excluded": {
+      "non-event": 2016,
+      "effect:simultaneous": 44,
+      "compound-ability": 164,
+      "multiple-or-missing-abilities": 16,
+      "effect:modifyStats": 17,
+      "effect:initiateAttack": 26,
+      "dynamic-amount": 4,
+      "effect:damagePropertiesFactory": 1,
+      "effect:createTokenUnit": 6,
+      "effect:conditional": 20,
+      "effect:resolveChoice": 8,
+      "effect:sequence": 19,
+      "effect:giveAdvantage": 1,
+      "effect:distributeTokenUpgradeSystem": 1,
+      "effect:createTokenUnitsDynamic": 1,
+      "effect:discardOwnHandPerPlayer": 2,
+      "effect:randomSelection": 1,
+      "effect:systemArrayFactory": 5,
+      "effect:systemPropertiesFactory": 3,
+      "effect:gainAbility": 4,
+      "effect:phaseModifiers": 3,
+      "compound-effect": 9,
+      "effect:deckSearch": 11,
+      "effect:privateConstructionBatch": 1,
+      "effect:lookAtAndSelectCard": 3,
+      "effect:gainKeyword": 2,
+      "effect:selectedPlayerSystem": 3,
+      "effect:roundCardEffect": 1,
+      "effect:cardRestriction": 2,
+      "effect:discardHandSystem": 1,
+      "effect:lookAtOptions": 2,
+      "effect:createCreditToken": 2,
+      "effect:useWhenPlayedAbility": 1,
+      "effect:playCardSystem": 1,
+      "effect:delayedEffect": 2,
+      "effect:giveExperience": 3,
+      "effect:exhaustResources": 1,
+      "compiler-unsupported": 1,
+      "effect:distributeHealing": 1,
+      "effect:capture": 1,
+      "effect:discardSpecificCard": 1,
+      "effect:chooseModalEffects": 4,
+      "effect:giveShield": 1,
+      "effect:playMultipleCardsFromDeck": 1,
+      "effect:systemBatch": 1,
+      "effect:draw": 2,
+      "effect:systemPropertiesProgram": 1
+    }
+  },
+  "cards": [
+    {
+      "id": "get-lost",
+      "name": "Get Lost",
+      "prints": [
+        "ASH_067"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat an upgraded non-leader unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isNonLeaderUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "query",
+              "name": "isUpgraded",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            }
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "40faf1eac69158b81e0036d4db515bc4f491e0a61532e2262a81ddbd09f8fa91",
+      "dataHash": "fb7e3266f7c6c6d2f6ed01ce34e1fcc1968d82c2e7c8cce62a043392c71b7887"
+    },
+    {
+      "id": "galvanized-leap",
+      "name": "Galvanized Leap",
+      "prints": [
+        "ASH_188"
+      ],
+      "recipe": "ready",
+      "ability": {
+        "trigger": "event",
+        "title": "Ready a unit that was damaged this phase",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "historyQuery",
+              "watcher": "damageDealtThisPhase",
+              "binding": "damageDealtThisPhaseWatcher",
+              "operation": "wasUnitDamagedThisPhase",
+              "args": [
+                {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                }
+              ],
+              "readAt": "expressionEvaluation"
+            }
+          }
+        },
+        "effect": {
+          "kind": "ready",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "c9dce44bd1ecb19201aa8b4ec7004058ffa053d609e226fbc211cfcc9104837d",
+      "dataHash": "4983f86b6ec1eeea03c876edb0befecbc008af7b79c97a3300910e9fd1fe452e"
+    },
+    {
+      "id": "keep-them-talking",
+      "name": "Keep Them Talking",
+      "prints": [
+        "ASH_233"
+      ],
+      "recipe": "exhaust",
+      "ability": {
+        "trigger": "event",
+        "title": "Exhaust up to two units that each cost 3 or less",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "ref",
+                "path": [
+                  "card",
+                  "cost"
+                ]
+              },
+              "right": {
+                "kind": "const",
+                "value": 3
+              }
+            }
+          },
+          "mode": "upTo",
+          "count": {
+            "kind": "const",
+            "value": 2
+          },
+          "optional": true
+        },
+        "effect": {
+          "kind": "exhaust",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "3bb7c32ff584ba356d42f19f4f6e534288349860f132d05e500b8a1db4d90c2a",
+      "dataHash": "586d6969d3784a78bbffc68248a61a1a39667131d9ba7a64c62f96d86b25a832"
+    },
+    {
+      "id": "dragons-might",
+      "name": "Dragon's Might",
+      "prints": [
+        "HMW_102"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a non-leader unit with 4 or less power",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "query",
+                "name": "getPower",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": []
+              },
+              "right": {
+                "kind": "const",
+                "value": 4
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "7e88c1d86329af0076f9868b9b801a0ddde9f3a054e96ce51058239a72e69ddd",
+      "dataHash": "0a07306018836c184a0a543500091f74eb6db88f8ab5c2fd6765254fda2c0d6b"
+    },
+    {
+      "id": "exploit-confidence",
+      "name": "Exploit Confidence",
+      "prints": [
+        "HMW_238"
+      ],
+      "recipe": "return",
+      "ability": {
+        "trigger": "event",
+        "title": "Return a non-leader unit with 6 or more power to it's owner's hand",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": ">=",
+              "left": {
+                "kind": "query",
+                "name": "getPower",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": []
+              },
+              "right": {
+                "kind": "const",
+                "value": 6
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "returnToHand",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "b09be001235fab42b402d6b20435546c7227a47909a9dd452632593610f80595",
+      "dataHash": "ae3fee6fa2c3c11a1fd926b2fbdddef166068cbccd9bcd5e52d0591ed92067a3"
+    },
+    {
+      "id": "ill-cover-for-you",
+      "name": "I'll Cover For You",
+      "prints": [
+        "IBH_005",
+        "IBH_039"
+      ],
+      "recipe": "damage",
+      "ability": {
+        "trigger": "event",
+        "title": "Deal 1 damage to an enemy unit and 1 damage to another enemy unit",
+        "costs": [],
+        "targetResolver": {
+          "kind": "cardSelection",
+          "mode": "exactlyVariable",
+          "chooser": "self",
+          "resultBinding": "target",
+          "defaults": "pinnedTargetResolver",
+          "contextBinding": "target",
+          "choosingPlayerOverride": "contextOverrideFirst",
+          "delayOpponentBeforeCosts": true,
+          "cardTypes": {
+            "kind": "const",
+            "value": "unit"
+          },
+          "zones": {
+            "kind": "const",
+            "value": "anyArena"
+          },
+          "controller": {
+            "kind": "const",
+            "value": "opponent"
+          },
+          "numCardsFunc": {
+            "kind": "math",
+            "name": "min",
+            "args": [
+              {
+                "kind": "const",
+                "value": 2
+              },
+              {
+                "kind": "query",
+                "name": "arenaUnitCount",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "opponent"
+                  ]
+                },
+                "args": [
+                  {
+                    "kind": "const",
+                    "value": true
+                  }
+                ]
+              }
+            ]
+          },
+          "promptTitleParts": [
+            {
+              "kind": "const",
+              "value": "Choose units to deal 1 damage to"
+            }
+          ]
+        },
+        "effect": {
+          "kind": "damage",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 1
+          }
+        }
+      },
+      "sourceHash": "f204bb8f18e360bb47fbf3b694873ee00431f282da5c7b6f8da280722ab461d4",
+      "dataHash": "1a9011279f817557d8116ddfa24f5a9a721abefbbed48e421781d2eefaab8472"
+    },
+    {
+      "id": "recovery",
+      "name": "Recovery",
+      "prints": [
+        "IBH_013"
+      ],
+      "recipe": "heal",
+      "ability": {
+        "trigger": "event",
+        "title": "Heal 5 damage from a unit.",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "heal",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 5
+          }
+        }
+      },
+      "sourceHash": "7e59eddee85bd76fa9ab55c9d2fe6c9702d86ef409f5e305c6276e34a0beed06",
+      "dataHash": "97b7ce11e6f93fe5795d1f8eeab4ea922c2d467c8ed6ab0a239e2628840c2616"
+    },
+    {
+      "id": "go-for-the-legs",
+      "name": "Go for the Legs",
+      "prints": [
+        "IBH_018",
+        "IBH_045"
+      ],
+      "recipe": "exhaust",
+      "ability": {
+        "trigger": "event",
+        "title": "Exhaust an enemy ground unit.",
+        "costs": [],
+        "targetResolver": {
+          "owner": "opponent",
+          "type": "unit",
+          "zone": "arena",
+          "arena": "ground"
+        },
+        "effect": {
+          "kind": "exhaust",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "d01785abe7d03540bb0149ab6488d43519e4a400a0125cc7077edabe4546c581",
+      "dataHash": "49bf026579ab186fc912a383c4e07f149c78879ac241ae1848e645df3e2a9303"
+    },
+    {
+      "id": "target-the-main-generator",
+      "name": "Target the Main Generator",
+      "prints": [
+        "IBH_059",
+        "IBH_071"
+      ],
+      "recipe": "damage",
+      "ability": {
+        "trigger": "event",
+        "title": "Deal 2 damage to a base",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "base"
+        },
+        "effect": {
+          "kind": "damage",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 2
+          }
+        }
+      },
+      "sourceHash": "13d31dd21cab08a2791f0cd24ebed30fba4947a7795aee0e10e658ad260b526b",
+      "dataHash": "7b5782950b35b842a5e3cb31f411706a3148c56e395dc9b5011323bc53aeaa03"
+    },
+    {
+      "id": "were-in-trouble",
+      "name": "We're In Trouble",
+      "prints": [
+        "IBH_061",
+        "IBH_086"
+      ],
+      "recipe": "damage",
+      "ability": {
+        "trigger": "event",
+        "title": "Deal 3 damage to a unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "damage",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 3
+          }
+        }
+      },
+      "sourceHash": "966305fb493e39335072a35565ce6456ec1009fd6b7c473728afd6f4da8cc255",
+      "dataHash": "b03b2bdda6bf1f4aca5585bbd6025aa86f02df1edaab912d2f5e082bb566f1b7"
+    },
+    {
+      "id": "too-strong-for-blasters",
+      "name": "Too Strong for Blasters",
+      "prints": [
+        "IBH_066",
+        "IBH_091"
+      ],
+      "recipe": "heal",
+      "ability": {
+        "trigger": "event",
+        "title": "Heal 2 damage from a unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "heal",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 2
+          }
+        }
+      },
+      "sourceHash": "16763802c58511542bba02d35176eec8eb48a521f85ae629f7e5021f3719935e",
+      "dataHash": "99854b7169f9f4598d8fa26171b61ef703705a3e0d21b75487bc885c0de0de0d"
+    },
+    {
+      "id": "the-desolation-of-hoth",
+      "name": "The Desolation of Hoth",
+      "prints": [
+        "IBH_104"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat up to 2 enemy units that each cost 3 or less",
+        "costs": [],
+        "targetResolver": {
+          "owner": "opponent",
+          "type": "unit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "ref",
+                "path": [
+                  "card",
+                  "cost"
+                ]
+              },
+              "right": {
+                "kind": "const",
+                "value": 3
+              }
+            }
+          },
+          "mode": "upTo",
+          "count": {
+            "kind": "const",
+            "value": 2
+          },
+          "optional": true
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "618f250ddd8f0059656e893070f76457591b1635f648041c675447c3fed664dd",
+      "dataHash": "65a5923db39df2e642daf0d9d6d47b2e1e666e162499a635aa07350a257dd187"
+    },
+    {
+      "id": "repair",
+      "name": "Repair",
+      "prints": [
+        "SOR_074",
+        "JTL_075"
+      ],
+      "recipe": "heal",
+      "ability": {
+        "trigger": "event",
+        "title": "Heal 3 damage from a unit or base",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "heal",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 3
+          }
+        }
+      },
+      "sourceHash": "a820260484c82e83ac25b56ef34568d48077d7bfa6295a4b476bd420c628f92f",
+      "dataHash": "82ff777d931e8f8138daf8913548c4cfa1377b8ecb327e616315ec41ede8a757"
+    },
+    {
+      "id": "direct-hit",
+      "name": "Direct Hit",
+      "prints": [
+        "JTL_078"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a non-leader Vehicle unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "query",
+            "name": "hasSomeTrait",
+            "receiver": {
+              "kind": "ref",
+              "path": [
+                "card"
+              ]
+            },
+            "args": [
+              {
+                "kind": "const",
+                "value": "vehicle"
+              }
+            ]
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "4d2a022d57b0fa1c07d6ca30a5c406964e74065cd432bf23eb89483f5429dd22",
+      "dataHash": "8545e567811ea65fc84bfeef6a17b3d25c4e44e6a3a6472467526a40b8d7e156"
+    },
+    {
+      "id": "koiogran-turn",
+      "name": "Koiogran Turn",
+      "prints": [
+        "JTL_179"
+      ],
+      "recipe": "ready",
+      "ability": {
+        "trigger": "event",
+        "title": "Ready a Fighter or Transport unit with 6 or less power",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "binary",
+              "op": "&&",
+              "left": {
+                "kind": "query",
+                "name": "isUnit",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": []
+              },
+              "right": {
+                "kind": "binary",
+                "op": "<=",
+                "left": {
+                  "kind": "query",
+                  "name": "getPower",
+                  "receiver": {
+                    "kind": "ref",
+                    "path": [
+                      "card"
+                    ]
+                  },
+                  "args": []
+                },
+                "right": {
+                  "kind": "const",
+                  "value": 6
+                }
+              }
+            },
+            "right": {
+              "kind": "query",
+              "name": "hasSomeTrait",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": [
+                {
+                  "kind": "array",
+                  "items": [
+                    {
+                      "kind": "const",
+                      "value": "fighter"
+                    },
+                    {
+                      "kind": "const",
+                      "value": "transport"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "effect": {
+          "kind": "ready",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "ae3c0aac205943ff7357032833ecdd8ea7f5e9ec2aed4b23e1862d8c2ee3a08b",
+      "dataHash": "e24280141b061814ac19d18b24f605a24ad8324ced7af1b26837e459403b17e1"
+    },
+    {
+      "id": "sweep-the-area",
+      "name": "Sweep the Area",
+      "prints": [
+        "JTL_233"
+      ],
+      "recipe": "return",
+      "ability": {
+        "trigger": "event",
+        "title": "Return up to 2 non-leader units in the same arena with a combined cost 3 or less to their owners' hands.",
+        "costs": [],
+        "targetResolver": {
+          "kind": "cardSelection",
+          "mode": "upTo",
+          "chooser": "self",
+          "resultBinding": "target",
+          "defaults": "pinnedTargetResolver",
+          "contextBinding": "target",
+          "choosingPlayerOverride": "contextOverrideFirst",
+          "delayOpponentBeforeCosts": true,
+          "cardTypes": {
+            "kind": "const",
+            "value": "nonLeaderUnit"
+          },
+          "zones": {
+            "kind": "const",
+            "value": "anyAttackable"
+          },
+          "controller": {
+            "kind": "const",
+            "value": "any"
+          },
+          "numCards": {
+            "kind": "const",
+            "value": 2
+          },
+          "multiSelectCardCondition": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "binary",
+              "op": "&&",
+              "left": {
+                "kind": "selectionCardQuery",
+                "name": "hasCost",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "selectionCandidate"
+                  ]
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "<=",
+                "left": {
+                  "kind": "binary",
+                  "op": "+",
+                  "left": {
+                    "kind": "ref",
+                    "path": [
+                      "selectionCandidate",
+                      "cost"
+                    ]
+                  },
+                  "right": {
+                    "kind": "selectionReduce",
+                    "receiver": {
+                      "kind": "ref",
+                      "path": [
+                        "selectedCards"
+                      ]
+                    },
+                    "step": {
+                      "kind": "binary",
+                      "op": "+",
+                      "left": {
+                        "kind": "ref",
+                        "path": [
+                          "selectionAccumulator"
+                        ]
+                      },
+                      "right": {
+                        "kind": "conditional",
+                        "condition": {
+                          "kind": "selectionCardQuery",
+                          "name": "hasCost",
+                          "receiver": {
+                            "kind": "ref",
+                            "path": [
+                              "selectedCard"
+                            ]
+                          }
+                        },
+                        "then": {
+                          "kind": "ref",
+                          "path": [
+                            "selectedCard",
+                            "cost"
+                          ]
+                        },
+                        "else": {
+                          "kind": "const",
+                          "value": 0
+                        }
+                      }
+                    },
+                    "seed": {
+                      "kind": "const",
+                      "value": 0
+                    },
+                    "limit": 256
+                  }
+                },
+                "right": {
+                  "kind": "const",
+                  "value": 3
+                }
+              }
+            },
+            "right": {
+              "kind": "privateProgramCall",
+              "name": "isSameZone",
+              "args": [
+                {
+                  "kind": "ref",
+                  "path": [
+                    "selectionCandidate"
+                  ]
+                },
+                {
+                  "kind": "ref",
+                  "path": [
+                    "selectedCards"
+                  ]
+                }
+              ],
+              "source": "physicalAbilitySource",
+              "invokeAt": "expressionEvaluation"
+            }
+          }
+        },
+        "effect": {
+          "kind": "returnToHand",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "90149f19d7977e3d1537883dda967d48a1d09cbacc3a876b820fa2d32df03974",
+      "dataHash": "a59e9f04136f98c1f5836a529f26d9fa09ae37cc04e39bc500f4182f564010ac"
+    },
+    {
+      "id": "evasive-maneuver",
+      "name": "Evasive Maneuver",
+      "prints": [
+        "JTL_262"
+      ],
+      "recipe": "exhaust",
+      "ability": {
+        "trigger": "event",
+        "title": "Exhaust a unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "exhaust",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "5ccbcec300982109ee7057bdc91af8de2d3bc684eca32f39d3d20b13fa264eec",
+      "dataHash": "d099f27d378125be1c23b49b34557ee329cfb8a344e29b7643141f16d0d41f69"
+    },
+    {
+      "id": "the-axe-forgets",
+      "name": "The Axe Forgets",
+      "prints": [
+        "LAW_246"
+      ],
+      "recipe": "return",
+      "ability": {
+        "trigger": "event",
+        "title": "Return a non-leader unit that costs 3 or less to its owner's hand",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isNonLeaderUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "ref",
+                "path": [
+                  "card",
+                  "cost"
+                ]
+              },
+              "right": {
+                "kind": "const",
+                "value": 3
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "returnToHand",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "13309ea373c6bca50aed784bd5964cbeaa58cd9d1689ade0a3c19c41499ed1c8",
+      "dataHash": "067b1d06c0677728aac07c43ada1d70be58af73988770eda1b632b16b9032218"
+    },
+    {
+      "id": "crushing-blow",
+      "name": "Crushing Blow",
+      "prints": [
+        "LOF_077"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a non-leader unit that costs 2 or less",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "ref",
+                "path": [
+                  "card",
+                  "cost"
+                ]
+              },
+              "right": {
+                "kind": "const",
+                "value": 2
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "b55ed10b0cdd0c76e6322be0fe8069d76b6ecbf2e70b81a7b9e5c416c246aa2c",
+      "dataHash": "49af3f35a7e2b89269518b6f699ceeef3dd924dba28d2539f9a8466cba2c841c"
+    },
+    {
+      "id": "ataru-onslaught",
+      "name": "Ataru Onslaught",
+      "prints": [
+        "LOF_174"
+      ],
+      "recipe": "ready",
+      "ability": {
+        "trigger": "event",
+        "title": "Ready a Force unit with 4 or less power",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "binary",
+              "op": "&&",
+              "left": {
+                "kind": "query",
+                "name": "isUnit",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": []
+              },
+              "right": {
+                "kind": "query",
+                "name": "hasSomeTrait",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": [
+                  {
+                    "kind": "const",
+                    "value": "force"
+                  }
+                ]
+              }
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "query",
+                "name": "getPower",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": []
+              },
+              "right": {
+                "kind": "const",
+                "value": 4
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "ready",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "37ffd87a75f547c0b41cb31b39b34a70f45d20255bd346377a7179118b9482bd",
+      "dataHash": "d2fecef0ae2ae45237f061f444abedfdae16942a96819daffd7ac767312e2492"
+    },
+    {
+      "id": "its-worse",
+      "name": "It's Worse",
+      "prints": [
+        "LOF_264"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a non-leader unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "0e54bb78dd8a03e5f7552ca537956c5fe6f418bf904190134247672f4f815072",
+      "dataHash": "c510d3d0922a2f88229d7400d66eb78e897648cf9957d134b7bf138b216d32c9"
+    },
+    {
+      "id": "retaliation",
+      "name": "Retaliation",
+      "prints": [
+        "SEC_077"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a unit that dealt damage to a base this phase",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "historyQuery",
+            "watcher": "damageDealtThisPhase",
+            "binding": "damageDealtWatcher",
+            "operation": "unitHasDealtDamage",
+            "args": [
+              {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              {
+                "kind": "dataLambda",
+                "bindings": [
+                  "data:1375:0"
+                ],
+                "body": {
+                  "kind": "dataCall",
+                  "method": "some",
+                  "receiver": {
+                    "kind": "dataPath",
+                    "root": [
+                      "data:1375:0"
+                    ],
+                    "steps": [
+                      {
+                        "key": "targets",
+                        "optional": false
+                      }
+                    ]
+                  },
+                  "args": [
+                    {
+                      "kind": "dataLambda",
+                      "bindings": [
+                        "data:1407:0"
+                      ],
+                      "body": {
+                        "kind": "dataCall",
+                        "method": "isBase",
+                        "receiver": {
+                          "kind": "dataPath",
+                          "root": [
+                            "data:1407:0"
+                          ],
+                          "steps": []
+                        },
+                        "args": [],
+                        "optionalCall": false,
+                        "optionalReceiver": false
+                      }
+                    }
+                  ],
+                  "optionalCall": false,
+                  "optionalReceiver": false
+                }
+              }
+            ],
+            "readAt": "expressionEvaluation"
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "15d886a7d5f0084737521dfa0065b42fc42e9237e53670d0f40543f6d4dd9143",
+      "dataHash": "6532ad48085bb647e16b831515829a1e8facaf45a534ab34cd4c6e743be7bb85"
+    },
+    {
+      "id": "no-one-ever-knew",
+      "name": "No One Ever Knew",
+      "prints": [
+        "SEC_196"
+      ],
+      "recipe": "exhaust",
+      "ability": {
+        "trigger": "event",
+        "title": "For each friendly Official unit, exhaust an enemy unit",
+        "costs": [],
+        "targetResolver": {
+          "kind": "cardSelection",
+          "mode": "exactlyVariable",
+          "chooser": "self",
+          "resultBinding": "target",
+          "defaults": "pinnedTargetResolver",
+          "contextBinding": "target",
+          "choosingPlayerOverride": "contextOverrideFirst",
+          "delayOpponentBeforeCosts": true,
+          "cardTypes": {
+            "kind": "const",
+            "value": "unit"
+          },
+          "zones": {
+            "kind": "const",
+            "value": "anyAttackable"
+          },
+          "controller": {
+            "kind": "const",
+            "value": "opponent"
+          },
+          "numCardsFunc": {
+            "kind": "math",
+            "name": "min",
+            "args": [
+              {
+                "kind": "query",
+                "name": "arenaUnitCount",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "player"
+                  ]
+                },
+                "args": [
+                  {
+                    "kind": "binary",
+                    "op": "&&",
+                    "left": {
+                      "kind": "const",
+                      "value": true
+                    },
+                    "right": {
+                      "kind": "query",
+                      "name": "hasSomeTrait",
+                      "receiver": {
+                        "kind": "ref",
+                        "path": [
+                          "card"
+                        ]
+                      },
+                      "args": [
+                        {
+                          "kind": "const",
+                          "value": "official"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "kind": "query",
+                "name": "arenaUnitCount",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "opponent"
+                  ]
+                },
+                "args": [
+                  {
+                    "kind": "const",
+                    "value": true
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "effect": {
+          "kind": "exhaust",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "1dfe9a390522b4bafa849feb01ff9ca8501bd2a830b47f4303b5ed1e2a6253b1",
+      "dataHash": "393e1909dea66ca4e04faacfebab514ddbf0119a7cebfa0f619aaf58f48d95c8"
+    },
+    {
+      "id": "evil-is-everywhere",
+      "name": "Evil is Everywhere",
+      "prints": [
+        "SEC_247"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a unit with cost equal to or less than the number of Villainy aspect icons among friendly units",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "ref",
+                "path": [
+                  "card",
+                  "cost"
+                ]
+              },
+              "right": {
+                "kind": "query",
+                "name": "arenaAspectIconCount",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "player"
+                  ]
+                },
+                "args": [
+                  {
+                    "kind": "const",
+                    "value": "villainy"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "0d1e17cde79fff399f8a7dee9c722df138c77ea0b869c0adc3e38181605c4cbf",
+      "dataHash": "d10cd93c56e64fd18b123cca81b7afcee3ef3662830013370f1e0aa4b3990fdb"
+    },
+    {
+      "id": "fell-the-dragon",
+      "name": "Fell the Dragon",
+      "prints": [
+        "SHD_078"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a non-leader unit with 5 or more power",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isNonLeaderUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": ">=",
+              "left": {
+                "kind": "query",
+                "name": "getPower",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": []
+              },
+              "right": {
+                "kind": "const",
+                "value": 5
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "da3a8258240e78ae169d054fe513f0d1b1d837e3b31dc2790bced530b2138a84",
+      "dataHash": "d84afde75d24d2a7c4af448e5fc9d6b496e0b0423473124de0a8d30f8031b53c"
+    },
+    {
+      "id": "rivals-fall",
+      "name": "Rival's Fall",
+      "prints": [
+        "SHD_079"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "8e093a6ccf72786cf943e1c1d96c720c14f13b172f46ee5886f3a151e557ba34",
+      "dataHash": "bf3f6b5a1d44719d553a2a94ada31fde879e5b24e4eb29b77e797a47e6a3bc79"
+    },
+    {
+      "id": "spark-of-hope",
+      "name": "Spark of Hope",
+      "prints": [
+        "SHD_105"
+      ],
+      "recipe": "resource",
+      "ability": {
+        "trigger": "event",
+        "title": "Put into play as a resource a unit that was defeated this phase",
+        "costs": [],
+        "targetResolver": {
+          "owner": "self",
+          "type": "unit",
+          "zone": "discard",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "historyQuery",
+              "watcher": "cardsDefeatedThisPhase",
+              "binding": "cardsDefeatedThisPhaseWatcher",
+              "operation": "wasDefeatedThisPhase",
+              "args": [
+                {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                }
+              ],
+              "readAt": "expressionEvaluation"
+            }
+          }
+        },
+        "effect": {
+          "kind": "resourceCard",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "a837a273ad3af493b77f0503f7f705805f9230f6afec974cbb60330edfe1da82",
+      "dataHash": "6ede90390cf70a9242c129b297db85678da8f70ed1b83b412a80926caa8e260f"
+    },
+    {
+      "id": "confiscate",
+      "name": "Confiscate",
+      "prints": [
+        "SOR_251",
+        "SHD_262"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat an upgrade",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "upgrade",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "fed0d9076bfb6ee52deee6678c2d54fc131c957f549cfe0d9b7f834eb0500e55",
+      "dataHash": "84e72e11b877543eb3ea844f1a2ebc4713475d80f14a0921aead099539848980"
+    },
+    {
+      "id": "power-of-the-dark-side",
+      "name": "Power of the Dark Side",
+      "prints": [
+        "SOR_041"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "An opponent chooses a unit they control. Defeat that unit",
+        "costs": [],
+        "targetResolver": {
+          "kind": "cardSelection",
+          "mode": "single",
+          "chooser": "opponent",
+          "resultBinding": "target",
+          "defaults": "pinnedTargetResolver",
+          "contextBinding": "target",
+          "choosingPlayerOverride": "contextOverrideFirst",
+          "delayOpponentBeforeCosts": true,
+          "cardTypes": {
+            "kind": "const",
+            "value": "unit"
+          },
+          "zones": {
+            "kind": "const",
+            "value": "anyAttackable"
+          },
+          "controller": {
+            "kind": "const",
+            "value": "opponent"
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "243743320a6c37c9e1792b12ae5151bbf20d58f9444f08b95e62a2b6cde6d2ef",
+      "dataHash": "9abf74e8bc3e73bd4fbd1001eec682411a6e8317ee23b864b783fc29692ee9f5"
+    },
+    {
+      "id": "takedown",
+      "name": "Takedown",
+      "prints": [
+        "SOR_077"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a unit with 5 or less remaining HP",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "ref",
+                "path": [
+                  "card",
+                  "remainingHp"
+                ]
+              },
+              "right": {
+                "kind": "const",
+                "value": 5
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "9fac1dc40372c513739e5b1783b43fc25ebe6b741d85a02a71ae1615565b480d",
+      "dataHash": "0042e739d4741919dbd0fe36817e8675478ec85740ff1c07c5f927b74529040c"
+    },
+    {
+      "id": "keep-fighting",
+      "name": "Keep Fighting",
+      "prints": [
+        "SOR_169"
+      ],
+      "recipe": "ready",
+      "ability": {
+        "trigger": "event",
+        "title": "Ready a unit with 3 or less power",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "binary",
+            "op": "&&",
+            "left": {
+              "kind": "query",
+              "name": "isUnit",
+              "receiver": {
+                "kind": "ref",
+                "path": [
+                  "card"
+                ]
+              },
+              "args": []
+            },
+            "right": {
+              "kind": "binary",
+              "op": "<=",
+              "left": {
+                "kind": "query",
+                "name": "getPower",
+                "receiver": {
+                  "kind": "ref",
+                  "path": [
+                    "card"
+                  ]
+                },
+                "args": []
+              },
+              "right": {
+                "kind": "const",
+                "value": 3
+              }
+            }
+          }
+        },
+        "effect": {
+          "kind": "ready",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "4de2202dbd8a49db7f40d2a30a370014063ba58475b1bbc6a0980ec4f518c52d",
+      "dataHash": "aea649615e6810e76041f18e518e2cc8debe721783ce3f1f39ddd67ea5dec293"
+    },
+    {
+      "id": "evade-arrest",
+      "name": "Evade Arrest",
+      "prints": [
+        "TS26_082"
+      ],
+      "recipe": "exhaust",
+      "ability": {
+        "trigger": "event",
+        "title": "Exhaust any number of non-unique units",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable",
+          "predicate": {
+            "kind": "unary",
+            "op": "!",
+            "value": {
+              "kind": "ref",
+              "path": [
+                "card",
+                "unique"
+              ]
+            }
+          },
+          "mode": "unlimited",
+          "optional": true
+        },
+        "effect": {
+          "kind": "exhaust",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "4762809ec1ed2f702881a6d8cc9b7f1e20fd0e17870cce4c9a12bb2440f8402c",
+      "dataHash": "7ce514a007e4989ac4614145fdeb143aa28fdb7b984331d7dd7d816ffb12a21e"
+    },
+    {
+      "id": "vanquish",
+      "name": "Vanquish",
+      "prints": [
+        "SOR_078",
+        "TWI_077"
+      ],
+      "recipe": "defeat",
+      "ability": {
+        "trigger": "event",
+        "title": "Defeat a non-leader unit",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "defeat",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "87c0e7489800419b83fb685a75b828f5d3c8dacc44102754e555614e0ff13d40",
+      "dataHash": "b451ebbca14e50aafd986e503df080a01850535d6ab6424215b7aa9af9b81ed2"
+    },
+    {
+      "id": "resupply",
+      "name": "Resupply",
+      "prints": [
+        "SOR_126",
+        "TWI_127"
+      ],
+      "recipe": "resource",
+      "ability": {
+        "trigger": "event",
+        "title": "Put this event into play as a resource",
+        "costs": [],
+        "effect": {
+          "kind": "resourceCard",
+          "target": "self"
+        }
+      },
+      "sourceHash": "f29b5fa8b6adbc030f6c73813c83436f350f9d174901ede336c98d4279e863e2",
+      "dataHash": "708f575e6718c7825425da72a73d31fca84c6094caddf372d50c7982d8cf165e"
+    },
+    {
+      "id": "daring-raid",
+      "name": "Daring Raid",
+      "prints": [
+        "SHD_178",
+        "TWI_170"
+      ],
+      "recipe": "damage",
+      "ability": {
+        "trigger": "event",
+        "title": "Deal 2 damage to a unit or base",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "any",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "damage",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 2
+          }
+        }
+      },
+      "sourceHash": "69a1fa1e0191248a0640baa6e91a8636e76814fef7451a08d400f2fd349e6816",
+      "dataHash": "0d20bb9fd98439330290b15f893a781ec8d34ec2b97b4aa437efb215251adb3f"
+    },
+    {
+      "id": "open-fire",
+      "name": "Open Fire",
+      "prints": [
+        "SOR_172",
+        "TWI_174"
+      ],
+      "recipe": "damage",
+      "ability": {
+        "trigger": "event",
+        "title": "Deal 4 damage to a unit.",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "unit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "damage",
+          "target": "chosen",
+          "amount": {
+            "kind": "const",
+            "value": 4
+          }
+        }
+      },
+      "sourceHash": "e99017d7da9c5604552433078263b58582eb20bfd810662dc5b4510e406aa7a6",
+      "dataHash": "fd9827786392769d33914048b3709cc018853225b8b48d890d4248341baebf57"
+    },
+    {
+      "id": "waylay",
+      "name": "Waylay",
+      "prints": [
+        "SOR_222",
+        "TWI_226"
+      ],
+      "recipe": "return",
+      "ability": {
+        "trigger": "event",
+        "title": "Return a non-leader unit to its owner's hand",
+        "costs": [],
+        "targetResolver": {
+          "owner": "any",
+          "type": "nonLeaderUnit",
+          "zone": "anyAttackable"
+        },
+        "effect": {
+          "kind": "returnToHand",
+          "target": "chosen"
+        }
+      },
+      "sourceHash": "93c1da09d37785bcfad71f02ae59ca9a556ecef2c002b61e251d205fbf62ea41",
+      "dataHash": "15cb99f5f353192a55265d6554ceb5f6fd749304bc413cb76ea5232393b6a35d"
+    }
+  ]
+}

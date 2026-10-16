@@ -1,5 +1,6 @@
 import type { Action } from '../data/actions';
 import type { CardRef, Game, Seat } from '../data/types';
+import { planStructuredCue, structuredDefinition } from './structured';
 import { findCardEffect } from './catalogue';
 import { observedOutcomes } from './outcomes';
 import type { CardEffectCue } from './types';
@@ -60,7 +61,8 @@ export function detectCardEffects(game: Game, actions: Action[]): Map<number, Ca
         if (!game.end && action.until === game.steps.length - 1) {
             continue;
         }
-        const definition = findCardEffect(action.card);
+        const authored = findCardEffect(action.card);
+        const definition = authored ?? structuredDefinition(action.card);
         if (!definition) {
             continue;
         }
@@ -103,7 +105,7 @@ export function detectCardEffects(game: Game, actions: Action[]): Map<number, Ca
             }
         }
         const upgrade = definition.id === 'power-failure' ? outcomes.find(outcome => outcome.sourceCard) : undefined;
-        cues.set(action.until, {
+        const cue: CardEffectCue = {
             definition,
             seat: action.seat,
             source: action.card,
@@ -113,7 +115,8 @@ export function detectCardEffects(game: Game, actions: Action[]): Map<number, Ca
             transition: { before: game.steps[action.index - 1].state, after: game.steps[action.until].state,
                 beforeStep: action.index - 1, afterStep: action.until },
             key: `${game.header.seed}:${action.index}:${action.until}:${action.seat}:${definition.id}`
-        });
+        };
+        cues.set(action.until, authored ? cue : planStructuredCue(cue));
     }
     return cues;
 }
