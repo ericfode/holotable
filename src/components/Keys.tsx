@@ -143,19 +143,14 @@ for (const c of ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Di
 
 /**
  * Every key, on a drawn keyboard: in play mode its rows are the board's rows (choices, the top side, the bottom side,
- * your hand; the board draws p2 on top, so `seat` says whose side each row is); in a replay the left hand's W A S D
+ * your hand; your confirmed seat always sits at the bottom); in a replay the left hand's W A S D
  * steps and jumps. Esc, ? or a click outside closes it.
  */
-export function KeyHelp({ mode, live = false, seat = 'p1', onClose }: { mode: 'play' | 'replay'; live?: boolean; seat?: 'p1' | 'p2'; onClose: () => void }) {
+export function KeyHelp({ mode, live = false, onClose }: { mode: 'play' | 'replay'; live?: boolean; seat?: 'p1' | 'p2'; onClose: () => void }) {
     const [hints, setHints] = useKeyHints();
-    // the top row is the other seat's side unless the person sits at p2
-    const mineOnTop = seat === 'p2';
-    const playTone = (c: string): Tone | null => {
-        const t = PLAY_TONES[c] ?? null;
-        return mineOnTop && (t === 'them' || t === 'you') ? (t === 'them' ? 'you' : 'them') : t;
-    };
-    const topSide = mineOnTop ? 'Your side' : 'Their side';
-    const bottomSide = mineOnTop ? 'Their side' : 'Your side';
+    const playTone = (c: string): Tone | null => PLAY_TONES[c] ?? null;
+    const topSide = 'Their side';
+    const bottomSide = 'Your side';
     const close = useRef<HTMLButtonElement>(null);
     useEffect(() => close.current?.focus(), []);
     return (
@@ -170,7 +165,7 @@ export function KeyHelp({ mode, live = false, seat = 'p1', onClose }: { mode: 'p
                     <>
                         <p className="text-dim text-[13px] m-0">The keyboard's rows are the board's rows. Every card you can pick and every choice shows its key.</p>
                         <KeyboardMap tone={playTone} sub={{ KeyQ: 'base', KeyW: 'leader', KeyA: 'base', KeyS: 'leader' }}
-                            rowNotes={[<span key="c" className="k-choice">choices in the bar</span>, <span key="t" className={mineOnTop ? 'k-you' : 'k-them'}>{topSide.toLowerCase()}</span>, <span key="y" className={mineOnTop ? 'k-them' : 'k-you'}>{bottomSide.toLowerCase()}</span>, <span key="h" className="k-hand">your hand</span>]}
+                            rowNotes={[<span key="c" className="k-choice">choices in the bar</span>, <span key="t" className="k-them">{topSide.toLowerCase()}</span>, <span key="y" className="k-you">{bottomSide.toLowerCase()}</span>, <span key="h" className="k-hand">your hand</span>]}
                             spaceNote={<span className="k-main">main button</span>} />
                         <dl className="keyhelp-list">
                             <Row keys={<><Kbd k="Space" /> <Kbd k="Enter" /></>}>The green button: Pass, Done, Confirm, Keep</Row>

@@ -1,0 +1,348 @@
+{
+  "header": {
+    "t": "header",
+    "v": 1,
+    "seed": 42,
+    "engine": "presentation-fixture-not-engine-recording",
+    "players": [
+      {
+        "id": "p1",
+        "bot": "A",
+        "deck": ""
+      },
+      {
+        "id": "p2",
+        "bot": "B",
+        "deck": ""
+      }
+    ]
+  },
+  "end": {
+    "t": "end",
+    "winner": null,
+    "round": 2,
+    "steps": 3,
+    "outcome": "presentation-fixture",
+    "error": null
+  },
+  "steps": [
+    {
+      "t": "step",
+      "n": 0,
+      "state": {
+        "round": 2,
+        "phase": "action",
+        "initiative": "p1",
+        "players": {
+          "p1": {
+            "name": "A",
+            "base": {
+              "id": "baseA",
+              "n": "Echo Base",
+              "s": "SOR_024",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": {
+              "id": "leaderA",
+              "n": "Boba Fett: Collecting the Bounty",
+              "s": "SOR_015",
+              "dep": 0,
+              "x": 0
+            },
+            "hand": [
+              {
+                "id": "event",
+                "n": "I'll Cover For You",
+                "s": "IBH_005"
+              }
+            ],
+            "deck": 10,
+            "discard": [],
+            "ground": [],
+            "space": [],
+            "res": {
+              "ready": 5,
+              "total": 5
+            }
+          },
+          "p2": {
+            "name": "B",
+            "base": {
+              "id": "baseB",
+              "n": "Capital City",
+              "s": "SOR_020",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": null,
+            "hand": [],
+            "deck": 10,
+            "discard": [],
+            "ground": [
+              {
+                "id": "body",
+                "incarnation": "entry-1",
+                "n": "Wampa",
+                "s": "SOR_164",
+                "p": 4,
+                "h": 5,
+                "d": 0,
+                "owner": "p2"
+              }
+            ],
+            "space": [],
+            "res": {
+              "ready": 5,
+              "total": 5
+            }
+          }
+        }
+      }
+    },
+    {
+      "t": "step",
+      "n": 1,
+      "pid": "p1",
+      "prompt": "actionWindow",
+      "title": "Choose an action",
+      "action": {
+        "kind": "card",
+        "id": "event",
+        "label": "I'll Cover For You"
+      },
+      "state": {
+        "round": 2,
+        "phase": "action",
+        "initiative": "p1",
+        "players": {
+          "p1": {
+            "name": "A",
+            "base": {
+              "id": "baseA",
+              "n": "Echo Base",
+              "s": "SOR_024",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": {
+              "id": "leaderA",
+              "n": "Boba Fett: Collecting the Bounty",
+              "s": "SOR_015",
+              "dep": 0,
+              "x": 0
+            },
+            "hand": [
+              {
+                "id": "event",
+                "n": "I'll Cover For You",
+                "s": "IBH_005"
+              }
+            ],
+            "deck": 10,
+            "discard": [],
+            "ground": [],
+            "space": [],
+            "res": {
+              "ready": 5,
+              "total": 5
+            }
+          },
+          "p2": {
+            "name": "B",
+            "base": {
+              "id": "baseB",
+              "n": "Capital City",
+              "s": "SOR_020",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": null,
+            "hand": [],
+            "deck": 10,
+            "discard": [],
+            "ground": [
+              {
+                "id": "body",
+                "incarnation": "entry-1",
+                "n": "Wampa",
+                "s": "SOR_164",
+                "p": 4,
+                "h": 5,
+                "d": 0,
+                "owner": "p2"
+              }
+            ],
+            "space": [],
+            "res": {
+              "ready": 5,
+              "total": 5
+            }
+          }
+        }
+      }
+    },
+    {
+      "t": "step",
+      "n": 2,
+      "pid": "p1",
+      "prompt": "selectCard",
+      "title": "Choose units to deal 1 damage to",
+      "action": {
+        "kind": "button",
+        "label": "Done"
+      },
+      "state": {
+        "round": 2,
+        "phase": "action",
+        "initiative": "p1",
+        "players": {
+          "p1": {
+            "name": "A",
+            "base": {
+              "id": "baseA",
+              "n": "Echo Base",
+              "s": "SOR_024",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": {
+              "id": "leaderA",
+              "n": "Boba Fett: Collecting the Bounty",
+              "s": "SOR_015",
+              "dep": 0,
+              "x": 0
+            },
+            "hand": [],
+            "deck": 10,
+            "discard": [
+              {
+                "id": "event",
+                "n": "I'll Cover For You",
+                "s": "IBH_005"
+              }
+            ],
+            "ground": [],
+            "space": [],
+            "res": {
+              "ready": 2,
+              "total": 5
+            }
+          },
+          "p2": {
+            "name": "B",
+            "base": {
+              "id": "baseB",
+              "n": "Capital City",
+              "s": "SOR_020",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": null,
+            "hand": [],
+            "deck": 10,
+            "discard": [],
+            "ground": [
+              {
+                "id": "body",
+                "incarnation": "entry-1",
+                "n": "Wampa",
+                "s": "SOR_164",
+                "p": 4,
+                "h": 5,
+                "d": 1,
+                "owner": "p2"
+              }
+            ],
+            "space": [],
+            "res": {
+              "ready": 5,
+              "total": 5
+            }
+          }
+        }
+      }
+    },
+    {
+      "t": "step",
+      "n": 3,
+      "pid": "p2",
+      "prompt": "actionWindow",
+      "title": "Choose an action",
+      "action": {
+        "kind": "button",
+        "label": "Pass"
+      },
+      "state": {
+        "round": 2,
+        "phase": "action",
+        "initiative": "p1",
+        "players": {
+          "p1": {
+            "name": "A",
+            "base": {
+              "id": "baseA",
+              "n": "Echo Base",
+              "s": "SOR_024",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": {
+              "id": "leaderA",
+              "n": "Boba Fett: Collecting the Bounty",
+              "s": "SOR_015",
+              "dep": 0,
+              "x": 0
+            },
+            "hand": [],
+            "deck": 10,
+            "discard": [
+              {
+                "id": "event",
+                "n": "I'll Cover For You",
+                "s": "IBH_005"
+              }
+            ],
+            "ground": [],
+            "space": [],
+            "res": {
+              "ready": 2,
+              "total": 5
+            }
+          },
+          "p2": {
+            "name": "B",
+            "base": {
+              "id": "baseB",
+              "n": "Capital City",
+              "s": "SOR_020",
+              "hp": 30,
+              "d": 0
+            },
+            "leader": null,
+            "hand": [],
+            "deck": 10,
+            "discard": [],
+            "ground": [
+              {
+                "id": "body",
+                "incarnation": "entry-1",
+                "n": "Wampa",
+                "s": "SOR_164",
+                "p": 4,
+                "h": 5,
+                "d": 1,
+                "owner": "p2"
+              }
+            ],
+            "space": [],
+            "res": {
+              "ready": 5,
+              "total": 5
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -51,6 +51,27 @@ Color reinforces shape, movement, text, and destination. It is never the only di
 
 The original twenty cards used nineteen kinds; A01–A05 extend the executable vocabulary to **28 kinds**. Availability of a kind does not establish acceptance of every scene using it. Traits and names such as Force, Tactic, Command, or Aggression are not interchangeable with mechanical outcomes. A Force card can suppress, deal damage, discount a cost, or grant tokens; its cinematic styling sits above those shared actions.
 
+## Shared default: semantic action grammar
+
+The shared JSON path chooses presentation from the **verified mechanical action and outcome**, rather than a card title, moral alignment, or which player benefits. Healing an opposing unit still restores; a friendly unit taking damage still receives an impact. The small mapping in `semanticMotion.ts` names roles across the existing vocabulary, while `semanticVocabulary.tsx` provides distinct reusable motion for impact, protection, restoration and enhancement.
+
+| Role/action | Travel and formation | Arrival/held result |
+| --- | --- | --- |
+| Impact / damage | A pointed, segmented dart commits late and accelerates toward the actual recipient | Angular slashes and outward fragments; actual damage/HP receipts. No support shell or restorative stream |
+| Protection / Shield | Paired contours assemble locally around the recipient, drawing closed from an open perimeter; no source projectile | A closed shell surrounds the same unit, with the actual Shield count/token preserved |
+| Restoration / heal | Smooth curved strands gather inward from the recipient's periphery, with mending crosses; no directed shot | Mending seams settle while actual wounds decrease; maximum HP is unchanged |
+| Enhancement / buff | Stepped chevrons rise beside the recipient | Actual power/HP changes occupy measured counters; no heal cross or Shield shell, and no inferred Experience token |
+| Movement / draw, discard, mill, return, recover, play | Existing intact-card routes retain their real origin, destination and visibility; hidden moves use backs | Measured hand, deck, discard, resource or arena destination. A card is not struck simply because it changes zones |
+| Control / controller changes | The same physical card crosses from its current controller to the measured destination controller | Owner, wounds and readiness remain distinct; a temporary return is shown only when explicitly supplied |
+| Removal / defeat | Existing fracture/departure, with the actual discard or exhausted leader destination | No fabricated damage amount or default destination |
+| Readiness / ready, exhaust | Existing upright/sideways pose and indicator | Actual readiness changes; no stat enhancement or restorative beam |
+| Diminishment / debuff | Existing downward stat markers | Actual stat loss, separate from damage and healing |
+| Resource | Existing observed placement, or a count-only marker when identity is missing | No invented face, origin or readiness for aggregate-only data |
+
+This refines semantic primitives, not per-card registrations. Shared support effects no longer reuse a universal source-to-target energy beam. A quiet source acknowledgment may identify a known actor; explicit unit-origin or unknown-source outcomes retain local action without invented attribution. The same reversible clock owns every pose. Screen-pixel geometry and counter masks preserve silhouettes on tall mobile boards and clear measured base/neighbor counters. HTML result receipts and actual ending snapshots remain authoritative.
+
+Only the four new semantic primitives suppress their former generic SVG visuals; they do not suppress the separately checked labels, numbers or final-state handoff. Existing attacks retain their established attacker-lunge/combat compositions and remain outside the shared event admission path: this change neither adds attack outcomes nor infers unsupported attack chronology. Other unsupported mechanics still report their fallbacks.
+
 ## Complete card grammar and staged choices
 
 Every card name links to its read-only implementation in the pinned `forceteki` submodule. Card text and reprints were also checked against `forceteki/test/json/Card/<internal-name>.json`, which is installed card data rather than a committed source file.

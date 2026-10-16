@@ -1,5 +1,6 @@
 import type { Action } from '../data/actions';
 import type { CardRef, Game, Seat, Snapshot, UnitRef, ResourceRef, UpgradeRef } from '../data/types';
+import { structuredCard } from './structured';
 import { cardAbilities } from './abilities';
 import { findCardEffect } from './catalogue';
 import type { CardEffectOutcome } from './types';
@@ -51,7 +52,7 @@ export function observedOutcomes(game: Game, action: Action): CardEffectOutcome[
     const outcomes: CardEffectOutcome[] = [];
     const samePhase = before.round === after.round && before.phase === after.phase;
     const definition = action.card ? findCardEffect(action.card) : undefined;
-    const kinds = new Set(cardAbilities(definition?.id ?? '').map((beat) => beat.kind));
+    const kinds = new Set([...cardAbilities(definition?.id ?? '').map((beat) => beat.kind), ...(structuredCard(action.card ?? null)?.recipes ?? [])]);
     const source = (item: Located) => item.seat === action.seat && !!action.card && (action.card.id
         ? item.card.id === action.card.id
         : identity(item.card) === identity(action.card));
@@ -126,6 +127,11 @@ export function observedOutcomes(game: Game, action: Action): CardEffectOutcome[
             outcomes.push({ kind: 'discard', card: current.card, fromSeat: previous.seat, fromZone: 'resources',
                 seat: current.seat, zone: 'discard', ...(current.card.owner ? { ownerSeat: current.card.owner } : {}),
                 amount: 1, label: 'Card moved from resources to discard' });
+            continue;
+        }
+        if (previous.zone === 'leader' && !previous.upgrade && isUnit(current.card) && (current.zone === 'ground' || current.zone === 'space')) {
+            outcomes.push({ kind: 'play', card: current.card, fromSeat: previous.seat, fromZone: 'leader', seat: current.seat, zone: current.zone,
+                unit: current.card, amount: 1, label: 'Leader deployed' });
             continue;
         }
         if (onBoard && !previous.upgrade && isUnit(previous.card) && current.zone === 'leader') {

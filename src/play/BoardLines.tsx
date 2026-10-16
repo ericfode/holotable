@@ -62,8 +62,15 @@ export function BoardLines({ root, step, trail, botSeat, asking, answers, questi
             const at = new Map<string, Box>();
             for (const id of want) {
                 const card = el.querySelector(`[data-effect-id="${CSS.escape(id)}"]`);
-                const r = card?.getBoundingClientRect();
-                if (card && r && r.width > 0) {
+                let r = card?.getBoundingClientRect();
+                const field = card?.closest('.side-field');
+                if (r && field) {
+                    const clip = field.getBoundingClientRect();
+                    const left = Math.max(r.left, clip.left), top = Math.max(r.top, clip.top);
+                    const right = Math.min(r.right, clip.right), bottom = Math.min(r.bottom, clip.bottom);
+                    r = new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
+                }
+                if (card && r && r.width > 0 && r.height > 0) {
                     const seat = card.closest('[data-effect-seat]')?.getAttribute('data-effect-seat');
                     at.set(id, { x: Math.round(r.left - base.left), y: Math.round(r.top - base.top), w: Math.round(r.width), h: Math.round(r.height), seat: seat === 'p1' || seat === 'p2' ? seat : null });
                 }
@@ -82,9 +89,11 @@ export function BoardLines({ root, step, trail, botSeat, asking, answers, questi
         tick();
         const ro = new ResizeObserver(measure);
         ro.observe(el);
+        el.addEventListener('scroll', measure, true);
         return () => {
             cancelAnimationFrame(frame);
             ro.disconnect();
+            el.removeEventListener('scroll', measure, true);
         };
         // want is read through wantKey; step: the board changed, so cards moved
         // eslint-disable-next-line react-hooks/exhaustive-deps

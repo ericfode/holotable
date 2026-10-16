@@ -100,6 +100,8 @@ export interface CardEffectOutcome {
     traitCondition?: { player: Seat; trait: 'official'; minimum: 3; units: { id: string; incarnation: string }[] };
     captureArena?: { captorId: string; incarnation: string; arena: 'ground'|'space' };
 
+    /** Physical event disposal is distinct from effect targets and payment. */
+    sourceDisposal?: true;
     kind: AbilityKind;
     card?: CardRef | null;
     seat: Seat;
@@ -195,6 +197,9 @@ export interface CardEffectOutcome {
 
 /** A visual interpretation of a recorded, resolved card action. Never changes game state. */
 export interface CardEffectCue {
+    animationOverride?: string;
+    /** Checked shared recipe plus explicit reasons for omitted receipts. */
+    structured?: { recipe: import('./structured').StructuredRecipe | null; sourceKnown?: boolean; recipes?: import('./structured').StructuredRecipe[]; fallbacks: string[] };
     definition: CardEffectDefinition;
     seat: Seat;
     source: CardRef | null;
@@ -214,6 +219,10 @@ export interface CardEffectCue {
 }
 
 export interface EffectPreview {
+    /** Review-only comparison; ordinary callers use the default resolver. */
+    renderer?: import('./animationResolver').AnimationRenderer;
+    /** Compare shared JSON recipes with the established authored signature. */
+    structured?: boolean;
     definition: CardEffectDefinition;
     nonce: number;
     seat?: Seat;

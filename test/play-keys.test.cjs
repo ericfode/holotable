@@ -93,13 +93,13 @@ test('attack targets: their base is always Q, their units follow on the top row'
     assert.equal(k.primary, null);
 });
 
-test('the rows follow the board, which draws p2 on top, for a person at either seat', () => {
+test('the rows follow the confirmed viewer seat, including a red player at the bottom', () => {
     const b = board(side('p1', [unit('wampa')]), side('p2', [unit('e1')], [], [unit('mine')]));
     const drawn = new Set(['p1-base', 'wampa', 'p2-base', 'e1', 'mine']);
     const d = { ...decide([cardAct(0, 'p1-base', 'base'), cardAct(1, 'e1'), cardAct(2, 'mine', 'hand')], { actionWindow: false }), you: 'p2' };
     const k = playKeys(d, b, 'p2', drawn);
-    assert.equal(k.card.get('p1-base'), 'KeyA', 'p1 is drawn at the bottom');
-    assert.equal(k.card.get('e1'), 'KeyE', 'p2 is drawn on top');
+    assert.equal(k.card.get('p1-base'), 'KeyQ', 'the p1 opponent is drawn on top');
+    assert.equal(k.card.get('e1'), 'KeyD', 'the p2 player is drawn at the bottom');
     assert.equal(k.card.get('mine'), 'KeyZ', 'the hand row is the person\'s own hand');
 });
 

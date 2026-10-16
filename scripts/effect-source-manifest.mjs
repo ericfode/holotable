@@ -11,7 +11,7 @@ export function effectSourceManifest() {
     // The renderer uses shared card faces, scores, settings and routes as well as effects.
     // Fingerprint the complete viewer source so a port cannot silently reuse earlier evidence.
     const files = fs.readdirSync(path.join(repository, 'src'), { recursive: true })
-        .filter(file => /\.(tsx?|css)$/.test(file))
+        .filter(file => /\.(tsx?|css|json)$/.test(file))
         .map(file => `src/${file}`).sort();
     const sourceHashes = Object.fromEntries(files.map(file => [file, hash(fs.readFileSync(path.join(repository, file)))]));
     return { sourceFingerprint: hash(JSON.stringify(sourceHashes)), sourceHashes };

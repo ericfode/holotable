@@ -2138,3 +2138,48 @@ input[type="range"].scrub {
         opacity: 0.45;
     }
 }
+
+/* Play tables: the prompt owns one fixed track, never the geometry of either player's cards. */
+.board-middle { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.half.half-top { --half-dir: to bottom; }
+.half.half-bottom { --half-dir: to top; }
+.board-surface .lane { grid-template-columns: repeat(auto-fill, var(--board-unit-width, 100px)); }
+.board-surface .lane .card { --w: var(--board-unit-width, 100px); }
+.board-surface .hand .card { --w: var(--board-hand-width, 55px); }
+.board-surface .hand-card { width: var(--board-hand-slot, 76px); flex: none; }
+.board-surface .hand-name { height: 22px; }
+.play-layout { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.play-table-area { position: relative; min-width: 0; padding: 8px; height: var(--table-height, calc(100dvh - 110px)); }
+.play-move-log { max-height: 180px; min-height: 0; }
+@media (min-width: 1024px) {
+    .play-layout { grid-template-columns: minmax(0, 1fr) 240px; }
+    .play-move-log { max-height: var(--table-height, calc(100dvh - 140px)); }
+}
+.table-board {
+    height: 100%; min-height: 0;
+    display: grid; grid-template-rows: minmax(0, .95fr) 112px minmax(0, 1.05fr);
+    gap: 8px;
+}
+.table-board > .half { min-height: 0; overflow: hidden; }
+.table-board .side-field { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.table-board .half-bottom .side-field { display: flex; flex-direction: column; }
+.table-board .half-bottom .board-row { margin-top: auto; flex: none; }
+.table-board .hand { flex: none; flex-wrap: nowrap; padding: 5px 8px; gap: 6px; }
+.table-board .hand-cards { flex-wrap: nowrap; flex-basis: 0; overflow-x: auto; padding: 3px 0; }
+.table-board .half-top .hand .card { --w: min(var(--board-hand-width), 76px); }
+.table-board .half-top .hand-card { width: min(var(--board-hand-slot), 80px); }
+.table-board .hq { flex-direction: row; gap: 10px; }
+.table-board .hq-leader { flex-direction: column; gap: 4px; }
+.table-board .hq-meta { width: 130px; min-height: 44px; }
+.table-board .hq .card[data-effect-base] { --w: clamp(100px, var(--board-unit-width), 150px); }
+.table-board .hq .card[data-effect-zone="leader"] { --w: 100px !important; }
+.table-board .lane { min-height: 60px; }
+.table-board .board-middle { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; gap: 0; }
+.fullscreen-surface .table-board .play-center { position: relative; inset: auto; min-height: 0; height: 100%; overflow: auto; z-index: 30; }
+.table-board .play-bar { width: 100%; min-height: 100%; max-height: none; box-sizing: border-box; }
+.table-board .play-bar.held { overflow: auto; }
+@media (hover: none) and (pointer: coarse) {
+    .table-board .hand.fan { flex-wrap: wrap; }
+    .table-board .hand.fan .hand-cards { flex-basis: 100%; overflow: visible; }
+    .board-surface .hand.fan .hand-card + .hand-card { margin-left: calc(var(--step, 76px) - var(--board-hand-slot, 76px)); }
+}

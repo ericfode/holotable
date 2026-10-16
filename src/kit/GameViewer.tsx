@@ -31,8 +31,10 @@ import { CardEffectOverlay } from '../effects/CardEffectOverlay';
 import { KeyHelp, KeysButton } from '../components/Keys';
 import { FullscreenButton, FullscreenSurface } from '../components/Fullscreen';
 import { CONTROL, isTyping } from '../play/keys';
+import { useBoardSpace } from '../lib/useBoardSpace';
 import { useCardEffectAudio } from '../effects/audio';
 import { EffectSoundControls } from '../components/EffectSoundControls';
+import { routeAnimationCue } from '../effects/animationResolver';
 import { detectCardEffects } from '../effects/detect';
 import { preparePreviewCue, previewSceneKey } from '../effects/previewStages';
 import type { CardEffectCue, EffectPreview } from '../effects/types';
@@ -113,10 +115,12 @@ export interface GameViewerProps {
     control?: (c: ViewerControl) => void;
     /** A deliberately staged animation, using the same board and effect renderer as recorded gameplay. */
     effectPreview?: EffectPreview;
+    /** Explicit, stable seat orientation for spectators/replays; defaults to p1. */
+    bottomSeat?: Seat;
 }
 
 /** The whole replay experience in one component: Holotable's game page and every embed (dashboard, analysis pages) use it. */
-export function GameViewer({ game, live = false, startStep = 0, evals = null, lens = null, registry = null, score: requested = null, onScore, estimate, spots = true, lanes: startLanes, onStep, keyboard = 'focus', layout = 'full', fillWindow = false, back, control, effectPreview }: GameViewerProps) {
+export function GameViewer({ game, live = false, startStep = 0, evals = null, lens = null, registry = null, score: requested = null, onScore, estimate, spots = true, lanes: startLanes, onStep, keyboard = 'focus', layout = 'full', fillWindow = false, back, control, effectPreview, bottomSeat = 'p1' }: GameViewerProps) {
     const last = game.steps.length - 1;
     const [stepState, setStep] = useState(() => (live && !startStep ? last : Math.min(startStep, last)));
     // a live file can be rewritten with fewer steps (a re-run into the same folder): never read past the end
@@ -138,10 +142,11 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
     };
     // the timeline step under the pointer: the board score panel previews it
     const [hoverStep, setHoverStep] = useState<number | null>(null);
-    const { speed, setSpeed, perspective, setPerspective, art, setArt, lens: forcedValues, score: savedScore, setScore: saveScore, sound, volume } = useSettings();
+    const { speed, setSpeed, perspective, setPerspective, art, setArt, lens: forcedValues, score: savedScore, setScore: saveScore, sound, volume, effects: effectsOn, setEffects: setEffectsOn } = useSettings();
     const root = useRef<HTMLDivElement>(null);
     const effectBoard = useRef<HTMLDivElement>(null);
-    const [effectsOn, setEffectsOn] = useState(true);
+    const cardSize = useBoardSpace(effectBoard);
+    const [viewSeat, setViewSeat] = useState(bottomSeat);
     const [effectCue, setEffectCue] = useState<CardEffectCue | null>(null);
     const [completedEffect, setCompletedEffect] = useState<CardEffectCue | null>(null);
     useCardEffectAudio(effectCue, sound, volume);
@@ -229,7 +234,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
         }
         const before = game.steps[step].state;
         const cue = preparePreviewCue(effectPreview, before);
-        setEffectCue(cue);
+        setEffectCue(effectPreview.structured ? cue : routeAnimationCue(cue, effectPreview.renderer));
     }, [effectPreview, game, step]);
     const pivotal = useMemo(() => pivotalActions(actions, 10), [actions]);
     const actionAt = useMemo(() => new Map(actions.map((a) => [a.index, a])), [actions]);
@@ -564,8 +569,13 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                 </div>
                 <div className="flex gap-2 ml-auto items-center flex-wrap">
                     <FullscreenButton />
-                    <button className="btn !h-8 !px-2" aria-pressed={effectsOn} onClick={() => setEffectsOn(!effectsOn)} title="Card animations pause playback briefly so each effect can finish">
-                        <Sparkles size={14} />Effects
+                    <label className="flex items-center gap-1 text-xs text-dim">Bottom seat
+                        <select className="btn !h-8" aria-label="Bottom seat" value={viewSeat} onChange={e => setViewSeat(e.target.value as Seat)}>
+                            <option value="p1">{bots.p1}</option><option value="p2">{bots.p2}</option>
+                        </select>
+                    </label>
+                    <button className="btn !h-8 !px-2" aria-pressed={effectsOn} onClick={() => setEffectsOn(!effectsOn)} aria-label="Card animations" title="Card animations pause playback briefly so each effect can finish">
+                        <Sparkles size={14} />Animations {effectsOn ? 'on' : 'off'}
                     </button>
                     <EffectSoundControls onEnabled={() => {
                         const cue = effectCue ?? cardEffects.get(step);
@@ -605,7 +615,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                 <div className="flex flex-col gap-3 min-w-0">
                     <div ref={effectBoard} className="panel p-2 @3xl:p-3 relative overflow-hidden" data-effect-state={effectCue && !heldResult ? 'animating' : 'settled'}>
                         <Board key={effectCue?.key ?? 'recorded-board'} state={boardState} prev={ownsBoardChange ? null : prev?.state ?? null} ids={boardIds} prevIds={ownsBoardChange ? null : step > 0 ? ids[step - 1] : null} bots={bots} actor={actor} step={step}
-                            animateChanges={!ownsBoardChange} reservePlayerEffect={reservePlayerEffect} reserveArenaSlots={reserveArenaSlots} reserveDiscardPermissions={reserveDiscardPermissions} reserveBaseProtection={reserveBaseProtection} onFocus={onCardFocus} onLeave={onCardLeave} score={boardScore} values={valuesOn} spots={spots} />
+                            bottomSeat={viewSeat} cardSize={effectPreview ? undefined : cardSize} animateChanges={!ownsBoardChange} reservePlayerEffect={reservePlayerEffect} reserveArenaSlots={reserveArenaSlots} reserveDiscardPermissions={reserveDiscardPermissions} reserveBaseProtection={reserveBaseProtection} onFocus={onCardFocus} onLeave={onCardLeave} score={boardScore} values={valuesOn} spots={spots} />
                         <CardEffectOverlay cue={heldResult ? null : effectCue} boardRef={effectBoard} onComplete={dismissEffect} />
                         <AnimatePresence>
                             {end && !hideResult && (

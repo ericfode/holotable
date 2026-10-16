@@ -1,5 +1,6 @@
 import type { CardRef, Seat, Snapshot } from '../data/types';
 import type { CardEffectCue, CardEffectOutcome, EffectPreview } from './types';
+import { planStructuredCue } from './structured';
 import { previewCue } from './preview';
 import { resolvePreviewState } from './previewState';
 import { a06NextActionOutcomes } from './batchA06';
@@ -42,7 +43,7 @@ export const nextActionExampleLabelFor = (id: string) => id === 'close-the-shiel
     ? 'After P2 passes: pay 1 for the selected Jedi Lightsaber from discard, attach it to Marine for +3/+3, and consume only that copy’s phase permission'
     : nextActionExampleLabel;
 export const nextActionExampleLabel = 'Next P2 action: the same Trooper attacks Sentinel Defender; both are defeated and the obligation is consumed';
-export const previewSceneKey = (preview: EffectPreview) => `preview:${preview.definition.id}:${preview.nonce}${preview.stage ? `:${preview.stage}` : ''}`;
+export const previewSceneKey = (preview: EffectPreview) => `preview:${preview.definition.id}:${preview.nonce}${preview.stage ? `:${preview.stage}` : ''}${preview.structured ? ':structured' : ''}${preview.renderer ? `:${preview.renderer}` : ''}`;
 export const regroupExampleLabel = (id: string) => id === 'final-showdown'
     ? 'Regroup begins: P1 loses by Final Showdown; P2 wins, with the actual board intact'
     : id === 'unnatural-life'
@@ -102,9 +103,17 @@ export function resolveStagedRegroup(before: Snapshot): { after: Snapshot; outco
 
 /** Build a complete presentation scene; choosing its boundary always starts from the same legal example. */
 export function preparePreviewCue(preview: EffectPreview, initial: Snapshot): CardEffectCue {
+    const cue = prepareAuthoredPreviewCue(preview, initial);
+    return preview.structured ? planStructuredCue(cue) : cue;
+}
+
+function prepareAuthoredPreviewCue(preview: EffectPreview, initial: Snapshot): CardEffectCue {
     const primary = previewCue({ ...preview, stage: undefined }, initial);
     const immediate = resolvePreviewState(initial, primary);
-    if (!preview.stage) return { ...primary, transition: { before: initial, after: immediate } };
+    if (!preview.stage) {
+        const cue = { ...primary, key: previewSceneKey(preview), transition: { before: initial, after: immediate } };
+        return cue;
+    }
     if (preview.stage === 'next-action') {
         if (!hasNextActionExample(preview.definition.id)) throw new Error('This card has no authored next-action example');
         const before = structuredClone(immediate), later = a14LaterActionOutcomes(preview.definition, before, preview.seat ?? 'p1') ?? a12LaterActionOutcomes(preview.definition, before, preview.seat ?? 'p1') ?? a10LaterActionOutcomes(preview.definition, before, preview.seat ?? 'p1');

@@ -1,5 +1,9 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { useStore } from 'zustand';
+import { liveCardEffects } from '../effects/live';
+import { CardEffectOverlay } from '../effects/CardEffectOverlay';
+import type { CardEffectCue } from '../effects/types';
 import { Flag, Hand, Loader2, Minus, Play, Plus, RotateCcw, Send, Undo2 } from 'lucide-react';
 import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
@@ -10,7 +14,8 @@ import { CONTROL, eventKey, isTyping, playKeys, PRIMARY, type PlayKeys } from '.
 import { cardById, trackUnits } from '../data/derive';
 import type { CardRef, Seat, Snapshot } from '../data/types';
 import { cardTextBySet } from '../lib/cardText';
-import { createSettingsStore, SettingsProvider } from '../lib/settings';
+import { createSettingsStore, releaseSettingsStore, SettingsProvider } from '../lib/settings';
+import { useBoardSpace } from '../lib/useBoardSpace';
 import { hashParam } from '../lib/route';
 import { reportOnScreen } from '../kit/feedback';
 import { PickContext, type Pick } from '../play/pick';
@@ -28,8 +33,8 @@ import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../
  * TableContext's (play/client.ts): the HTTP table by default, or the host page's (the viewer kit's mountPlay), which
  * may also pair the person with another person (the open-tables start screen) and add decks.
  *
- * The prompt bar sits between the two sides of the board, where the eyes are, and docks to the top or bottom edge of
- * the window while the middle of the board is scrolled away. On a touch screen each card with a move shows it as an
+ * The prompt has a reserved, scrollable track between independently scrollable sides; status and action changes
+ * never change the board's geometry. The person's hand stays on the bottom edge. On a touch screen each card with a move shows it as an
  * icon on the card (Card's move chip): a tap on the icon makes the move, a tap on the rest of the card opens it with its
  * moves as buttons (it never plays the card by itself). A move made by touch waits TAKE_BACK_MS before it goes to the
  * table, with a countdown ring on the card's icon and an Undo button in the bar: the table cannot take a move back
@@ -39,7 +44,7 @@ export function PlayPage() {
     const table = useContext(TableContext);
     const [game, setGame] = useState<{ id: string; seat: Seat; bot: string } | null>(() => {
         const id = table.resumable ? hashParam('g') : null;
-        return id ? { id, seat: 'p1', bot: hashParam('bot') ?? 'bot' } : null;
+        return id ? { id, seat: hashParam('seat') === 'p2' ? 'p2' : 'p1', bot: hashParam('bot') ?? 'bot' } : null;
     });
     // the HTTP table keeps playing a game across a reload, so its address names the game
     const address = (to: string) => {
@@ -53,7 +58,7 @@ export function PlayPage() {
     };
     const begin = (g: { id: string; seat: Seat; bot: string }) => {
         setGame(g);
-        address(`#/play?g=${encodeURIComponent(g.id)}&bot=${encodeURIComponent(g.bot)}`);
+        address(`#/play?g=${encodeURIComponent(g.id)}&bot=${encodeURIComponent(g.bot)}&seat=${g.seat}`);
     };
     const leave = () => {
         setGame(null);
@@ -207,11 +212,21 @@ const ARM_MS = 250;
  */
 interface Held { seq: number; a: Action; split?: { id: string; amount: number }[]; text: string; auto?: boolean }
 
-function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
+function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
     const table = useContext(TableContext);
-    const settings = useMemo(() => createSettingsStore(null, { perspective: seat }), [seat]);
     const [hello, setHello] = useState<HelloMsg | null>(null);
+    const seat = hello?.you ?? joinedSeat;
+    const seatRef = useRef(seat);
+    const settings = useMemo(() => createSettingsStore('holotable.play', { perspective: seat }), [seat]);
+    useEffect(() => () => releaseSettingsStore(settings), [settings]);
     const [shown, setShown] = useState<Shown | null>(null);
+    const snapshotRef = useRef<Snapshot | null>(null);
+    const liveEffects = useRef(liveCardEffects());
+    const [effectCue, setEffectCue] = useState<CardEffectCue | null>(null);
+    const effectsOn = useStore(settings, s => s.effects);
+    const effectsRef = useRef(effectsOn);
+    effectsRef.current = effectsOn;
+    useEffect(() => { if (!effectsOn) { setEffectCue(null); liveEffects.current.clear(); } }, [effectsOn]);
     const [log, setLog] = useState<Omit<MoveMsg, 'state'>[]>([]);
     const [decide, setDecide] = useState<DecideMsg | null>(null);
     const [end, setEnd] = useState<EndMsg | null>(null);
@@ -231,6 +246,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [auto, setAuto] = useAutoAnswer();
     const [trail, setTrail] = useState<Trail[]>([]);
     const boardRef = useRef<HTMLDivElement>(null);
+    const cardSize = useBoardSpace(boardRef, true);
     const [problem, setProblem] = useState<string | null>(null);
     const [focus, setFocus] = useState<Focus | null>(null);
     // the pointer or the keys let go of a card; a card a tap opened stays open until it is closed
@@ -240,12 +256,13 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [hints] = useKeyHints();
     const queue = useRef<TableMsg[]>([]);
     const pumping = useRef(false);
+    const pumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const rootRef = useRef<HTMLDivElement>(null);
     const splitApi = useRef<SplitApi | null>(null);
     // the board's middle, where the prompt bar is drawn (a portal, so the memoised board doesn't redraw for the bar)
     const [centerEl, setCenterEl] = useState<HTMLDivElement | null>(null);
     const center = useMemo(() => <div className="play-center" ref={setCenterEl} />, []);
-    useDockTop(rootRef);
+
 
     // messages are shown in order; the bot's moves one at a time, so each one animates and can be read
     const pump = useCallback(() => {
@@ -260,19 +277,28 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 return;
             }
             let wait = 0;
+            const you = m.t === 'hello' ? m.you : seatRef.current;
             if (m.t === 'hello') {
+                seatRef.current = m.you;
                 setHello(m);
             } else if (m.t === 'move') {
-                const snap = toSnapshot(m.state, seat);
+                const snap = toSnapshot(m.state, you);
+                if (!effectsRef.current || queue.current.length >= 8) liveEffects.current.clear();
+                const cue = effectsRef.current && queue.current.length < 8 ? liveEffects.current.move(snapshotRef.current, snap, m) : null;
+                snapshotRef.current = snap;
+                setEffectCue(cue);
+                if (cue) setFocus(null);
                 setShown((s) => ({ prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 const { state: _state, ...entry } = m;
                 setLog((l) => [entry, ...l].slice(0, 60));
                 // the other side's moves since the person's own last one
-                setTrail((t) => (m.seat === seat ? [] : [...t, { id: m.card?.id, text: logText(m) }].slice(-TRAIL)));
+                setTrail((t) => (m.seat === you ? [] : [...t, { id: m.card?.id, text: logText(m) }].slice(-TRAIL)));
                 // catching up after a reload or a long wait: no pauses
-                wait = m.seat !== seat && queue.current.length < 8 ? BOT_MOVE_MS : 0;
+                wait = cue ? cue.definition.durationMs : m.seat !== you && queue.current.length < 8 ? BOT_MOVE_MS : 0;
             } else if (m.t === 'decide') {
-                const snap = toSnapshot(m.state, seat);
+                const snap = toSnapshot(m.state, you);
+                snapshotRef.current = snap;
+                if (m.prompt.actionWindow) liveEffects.current.clear();
                 setShown((s) => (s && JSON.stringify(s.cur) === JSON.stringify(snap) ? s : { prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 setDecide(m);
                 setSending(false);
@@ -285,12 +311,15 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 // the person take back moves, undo present) the real choice the person is about to make
                 setUndoable(!!m.undo || (m.undo === false && m.actions.length > 1));
             } else if (m.t === 'rewind') {
+                liveEffects.current.clear();
+                setEffectCue(null);
+                if (m.state) snapshotRef.current = toSnapshot(m.state, you);
                 // the move is back (the board as it was then, the moves after it gone), or could not be: either way the
                 // decision that follows says what to do next, and until it comes the old one is gone and Undo waits
                 undoAt.current = 'back';
                 setDecide(null);
                 if (m.state) {
-                    const snap = toSnapshot(m.state, seat);
+                    const snap = toSnapshot(m.state, you);
                     setShown((s) => ({ prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                     setLog((l) => l.filter((e) => e.n <= (m.n ?? 0)));
                     setTrail([]);
@@ -303,18 +332,23 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 setEnd(m);
             }
             if (wait) {
-                setTimeout(next, wait);
+                pumpTimer.current = setTimeout(next, wait);
             } else {
                 next();
             }
         };
         next();
-    }, [seat]);
+    }, []);
 
-    useEffect(() => table.follow(id, (m) => {
-        queue.current.push(m);
-        pump();
-    }, setDown), [table, id, pump]);
+    useEffect(() => {
+        const stop = table.follow(id, (m) => { queue.current.push(m); pump(); }, setDown);
+        return () => {
+            stop();
+            if (pumpTimer.current) clearTimeout(pumpTimer.current);
+            queue.current = [];
+            pumping.current = false;
+        };
+    }, [table, id, pump]);
 
     // what this table shows, for a host page's feedback box (kit/feedback.ts): read when the person opens it
     const onScreen = useRef<Record<string, unknown> | null>(null);
@@ -349,7 +383,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
      * decision's only answer, given by itself) waits AUTO_MS.
      */
     const act = useCallback((a: Action, split?: { id: string; amount: number }[], hold = false, auto = false) => {
-        if (!decide || sending || held) {
+        if (!decide || sending || held || effectCue) {
             return;
         }
         setFocus((f) => (f?.touch ? null : f));
@@ -364,7 +398,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
             setHeld(null);
             void send(h.seq, h.a, h.split);
         }, auto ? AUTO_MS : TAKE_BACK_MS);
-    }, [decide, sending, held, send]);
+    }, [decide, sending, held, effectCue, send]);
     const undo = useCallback(() => {
         if (heldTimer.current) {
             clearTimeout(heldTimer.current);
@@ -409,24 +443,25 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     // is a big move), with no split to make and no cards shown to read; Stop (undo) leaves it to the person
     const lone = auto && decide && !decide.prompt.actionWindow && !decide.prompt.cards?.length && decide.actions.length === 1 && decide.actions[0].kind !== 'distribute' ? decide.actions[0] : null;
     useEffect(() => {
-        if (lone && decide && !end && !sending && !held && autoSeq.current !== decide.seq) {
+        if (lone && decide && !end && !sending && !held && !effectCue && autoSeq.current !== decide.seq) {
             autoSeq.current = decide.seq;
             act(lone, undefined, false, true);
         }
-    }, [lone, decide, end, sending, held, act]);
+    }, [lone, decide, end, sending, held, effectCue, act]);
     const stopAuto = useCallback(() => {
         undo();
         setAuto(false);
     }, [undo, setAuto]);
 
-    const cur = shown?.cur ?? null;
+    const cur = effectCue?.transition?.before ?? shown?.cur ?? null;
     const ids = useMemo(() => {
         if (!shown) {
             return null;
         }
-        const steps = (shown.prev ? [shown.prev, shown.cur] : [shown.cur]).map((state, n) => ({ t: 'step' as const, n, state }));
+        const positions = effectCue?.transition ? [effectCue.transition.before] : shown.prev ? [shown.prev, shown.cur] : [shown.cur];
+        const steps = positions.map((state, n) => ({ t: 'step' as const, n, state }));
         return trackUnits({ header: { t: 'header', v: 1, seed: 0, engine: null, players: [] }, steps, end: null });
-    }, [shown]);
+    }, [shown, effectCue]);
 
     // what the board can click: card actions by card id, display picks by the shown card's id
     const picks = useMemo(() => {
@@ -493,8 +528,8 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const waiting = useMemo((): Pick | null => (held ? { state: () => null, pick: () => undefined, held: actionCardId(held.a) ?? null, undo, outcome } : null), [held, undo, outcome]);
 
     // the page's keys while this table is on screen and nothing is being typed
-    const now = useRef({ keys, decide, sending, act, pick, end, help, held, undo, sendNow, takeBack });
-    now.current = { keys, decide, sending, act, pick, end, help, held, undo, sendNow, takeBack };
+    const now = useRef({ keys, decide, sending, effectCue, act, pick, end, help, held, undo, sendNow, takeBack });
+    now.current = { keys, decide, sending, effectCue, act, pick, end, help, held, undo, sendNow, takeBack };
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             const s = now.current;
@@ -533,7 +568,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 }
                 return;
             }
-            const ready = () => !e.repeat && !!s.decide && !s.sending && performance.now() >= armed.current;
+            const ready = () => !e.repeat && !!s.decide && !s.sending && !s.effectCue && performance.now() >= armed.current;
             if (e.key === 'Escape') {
                 const active = (root.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement | null;
                 if (s.help) {
@@ -611,7 +646,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const youDeck = hello?.deck.metadata?.name;
     const botDeck = hello?.opponent.metadata?.name;
     const actor: Seat | null = end ? null : decide ? seat : seat === 'p1' ? 'p2' : 'p1';
-    const live = decide && !sending && !held && !undoing;
+    const live = decide && !sending && !held && !undoing && !effectCue;
     const zoomKey = focus ? `${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}` : '';
 
     return (
@@ -627,23 +662,25 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     {down && !end && <span className="text-p2">Reconnecting…</span>}
                     <span className="ml-auto flex flex-wrap items-center gap-2 max-w-full">
                         <FullscreenButton className="play-btn ghost" />
+                        <button className="play-btn ghost" aria-label="Card animations" aria-pressed={effectsOn} onClick={() => settings.getState().setEffects(!effectsOn)}>Animations {effectsOn ? 'on' : 'off'}</button>
                         <KeysButton onClick={() => setHelp(true)} className="play-btn ghost" />
                         {!auto && !end && <button className="play-btn ghost" onClick={() => setAuto(true)} title="Decisions with only one answer wait for you; turn on to have them go by themselves">One-answer moves: ask</button>}
                         {!end && <HoldButton className="play-btn ghost" onGo={() => void table.concede(id)} title="Give up this game"><Flag size={14} /> Concede</HoldButton>}
                     </span>
                 </div>
-                <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-                    <div ref={boardRef} className="relative flex-1 min-w-0 px-2 py-3">
+                <div className="play-layout">
+                    <div ref={boardRef} className="play-table-area" data-effect-state={effectCue ? 'animating' : 'settled'}>
                         {cur && ids ? (
                             <PickContext.Provider value={live ? pick : waiting}>
-                                <Board state={cur} prev={shown!.prev} ids={ids[ids.length - 1]} prevIds={shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
-                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} center={center} fanHand={seat} />
+                                <Board state={cur} prev={effectCue ? null : shown!.prev} ids={ids[ids.length - 1]} prevIds={!effectCue && shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
+                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} center={center} fanHand={seat} bottomSeat={seat} tableLayout cardSize={cardSize} />
                             </PickContext.Provider>
                         ) : <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Shuffling…</div>}
-                        {cur && <BoardLines root={boardRef} step={shown!.n} trail={trail} botSeat={seat === 'p1' ? 'p2' : 'p1'}
+                        <CardEffectOverlay cue={effectCue} boardRef={boardRef} onComplete={() => setEffectCue(current => current?.key === effectCue?.key ? null : current)} />
+                        {cur && !effectCue && <BoardLines root={boardRef} step={shown!.n} trail={trail} botSeat={seat === 'p1' ? 'p2' : 'p1'}
                             asking={live && !end ? asking : null} answers={answers} question={decide ? promptText(decide) : null} />}
                     </div>
-                    <aside className="lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-line px-3 py-3 flex flex-col gap-2 max-h-[40vh] lg:max-h-none overflow-auto">
+                    <aside className="play-move-log border-t lg:border-t-0 lg:border-l border-line px-3 py-3 flex flex-col gap-2 overflow-auto">
                         <h2 className="text-xs uppercase tracking-[0.12em] text-dim">Moves</h2>
                         <ol className="flex flex-col gap-1 text-[13px]">
                             {log.map((m) => (
@@ -677,42 +714,6 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
             </div>
         </SettingsProvider>
     );
-}
-
-/**
- * How far down the page's own sticky header reaches (Holotable's nav, or the bar of the page around the kit), as
- * --dock-top on the table, so the prompt bar docks under it rather than over it. Read at y = 1 in the window's middle,
- * skipping the table itself (and the kit's host element, which stands for everything in its shadow root).
- */
-function useDockTop(root: RefObject<HTMLElement | null>) {
-    useEffect(() => {
-        const el = root.current;
-        if (!el || typeof document.elementsFromPoint !== 'function') {
-            return;
-        }
-        const host = (el.getRootNode() as ShadowRoot).host ?? null;
-        const measure = () => {
-            let top = 0;
-            for (const hit of document.elementsFromPoint(window.innerWidth / 2, 1)) {
-                if (el.contains(hit) || (host && (hit === host || host.contains(hit)))) {
-                    continue;
-                }
-                for (let e: Element | null = hit; e && e !== document.body && !top; e = e.parentElement) {
-                    const pos = getComputedStyle(e).position;
-                    if (pos === 'sticky' || pos === 'fixed') {
-                        top = Math.max(0, Math.round(e.getBoundingClientRect().bottom));
-                    }
-                }
-                if (top) {
-                    break;
-                }
-            }
-            el.style.setProperty('--dock-top', `${top}px`);
-        };
-        measure();
-        window.addEventListener('resize', measure);
-        return () => window.removeEventListener('resize', measure);
-    }, [root]);
 }
 
 /** The moves of a card a tap opened: one button each, with the decision's words above them and what each would do. */

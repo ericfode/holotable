@@ -6,6 +6,8 @@ export type Perspective = 'god' | Seat;
 
 export interface Settings {
     art: boolean;
+    /** Outcome animations start enabled; an explicit off choice is saved with this viewer. */
+    effects: boolean;
     /**
      * card values forced on or off from outside (the kit's showLens option, setLensView); null lets each game decide (on
      * when it has a lens file for the chosen score). Never saved: the Card values button only overrides the game in view.
@@ -21,6 +23,7 @@ export interface Settings {
     /** bumps when a card-art source changes, so cards re-resolve their images */
     artVersion: number;
     setArt: (v: boolean) => void;
+    setEffects: (v: boolean) => void;
     setLens: (v: boolean | null) => void;
     setScore: (v: string | null) => void;
     setPerspective: (v: Perspective) => void;
@@ -29,13 +32,13 @@ export interface Settings {
     setVolume: (v: number) => void;
 }
 
-type Saved = Pick<Settings, 'art' | 'perspective' | 'speed' | 'score' | 'volume'>;
+type Saved = Pick<Settings, 'art' | 'effects' | 'perspective' | 'speed' | 'score' | 'volume'>;
 
 function load(key: string): Partial<Saved> {
     try {
         // earlier builds also saved 'lens' (card values on or off for every game): no longer applied
-        const { art, perspective, speed, score, volume } = JSON.parse(localStorage.getItem(key) ?? '{}') ?? {};
-        return { art, perspective, speed, ...(Number.isFinite(volume) ? { volume } : {}), ...(typeof score === 'string' ? { score } : {}) };
+        const { art, effects, perspective, speed, score, volume } = JSON.parse(localStorage.getItem(key) ?? '{}') ?? {};
+        return { art, ...(typeof effects === 'boolean' ? { effects } : {}), perspective, speed, ...(Number.isFinite(volume) ? { volume } : {}), ...(typeof score === 'string' ? { score } : {}) };
     } catch {
         return {};
     }
@@ -45,7 +48,7 @@ function save(key: string | null, s: Saved) {
         return;
     }
     try {
-        localStorage.setItem(key, JSON.stringify({ art: s.art, perspective: s.perspective, speed: s.speed, score: s.score, volume: s.volume }));
+        localStorage.setItem(key, JSON.stringify({ art: s.art, effects: s.effects, perspective: s.perspective, speed: s.speed, score: s.score, volume: s.volume }));
     } catch {
         // storage blocked: settings just don't persist
     }
@@ -64,6 +67,7 @@ export function createSettingsStore(persistKey: string | null = null, initial: P
     const saved: Partial<Saved & Pick<Settings, 'lens'>> = { ...(persistKey ? load(persistKey) : {}), ...initial };
     const store = createStore<Settings>((set, get) => ({
         art: saved.art ?? true,
+        effects: saved.effects ?? true,
         lens: saved.lens ?? null,
         score: saved.score ?? null,
         artVersion: 0,
@@ -71,6 +75,7 @@ export function createSettingsStore(persistKey: string | null = null, initial: P
         speed: saved.speed ?? 1,
         sound: false,
         volume: Number.isFinite(saved.volume) ? Math.max(0, Math.min(1, saved.volume!)) : .35,
+        setEffects: (effects) => (set({ effects }), save(persistKey, { ...get(), effects })),
         setArt: (art) => (set({ art }), save(persistKey, { ...get(), art })),
         setLens: (lens) => set({ lens }),
         setScore: (score) => (set({ score }), save(persistKey, { ...get(), score })),
