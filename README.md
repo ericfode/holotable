@@ -91,8 +91,8 @@ file beside it.
 ```
 
 The viewer's keys (`?` lists them) work while it has focus; `keyboard: 'window'` makes them work anywhere on the page
-while the viewer is shown, for a page that is mostly this viewer. `mountPlay`'s keys always work page-wide while its
-table is shown.
+while the viewer is shown, for a page that is mostly this viewer (a focused button of the page itself keeps its Space).
+`mountPlay`'s keys always work page-wide while its table is shown.
 
 It also exports `mountBoard`, `mountGlyph`, `mountActionIcon`, `scoreSeries`, `scoreAt`, `pivotal`, `loadCardText`,
 `loadArtPack`, `setArtResolver` and more (see `src/kit/index.tsx`). `node scripts/kit-demo.mjs <game.jsonl>` writes a

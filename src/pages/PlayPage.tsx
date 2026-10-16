@@ -4,7 +4,7 @@ import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
 import { FloatingZoom } from '../components/CardZoom';
 import { Kbd, KeyHelp, KeysButton, useKeyHints } from '../components/Keys';
-import { eventKey, isTyping, playKeys, PRIMARY, type PlayKeys } from '../play/keys';
+import { CONTROL, eventKey, isTyping, playKeys, PRIMARY, type PlayKeys } from '../play/keys';
 import { cardById, trackUnits } from '../data/derive';
 import type { CardRef, Seat, Snapshot } from '../data/types';
 import { cardTextBySet } from '../lib/cardText';
@@ -136,8 +136,6 @@ interface Shown { prev: Snapshot | null; cur: Snapshot; n: number }
 const BOT_MOVE_MS = 550;
 /** after a new decision shows, keys wait this long before they act, so a key meant for the last one can't answer it */
 const ARM_MS = 250;
-/** what a focused control does with Space and Enter itself */
-const CONTROL = 'button,a[href],input,select,textarea,summary,[role="button"],[role="checkbox"],[role="switch"],[role="tab"]';
 
 function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
     const table = useContext(TableContext);

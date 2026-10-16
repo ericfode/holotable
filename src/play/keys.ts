@@ -226,6 +226,9 @@ export function playKeys(decide: DecideMsg | null, board: Snapshot | null, you: 
     return { card, act, primary, split: !!dist, cancel, byKey };
 }
 
+/** Controls that Space and Enter press themselves when they have focus: a hotkey leaves those two keys to them. */
+export const CONTROL = 'button,a[href],input,select,textarea,summary,[role="button"],[role="checkbox"],[role="switch"],[role="tab"]';
+
 /** True when a key press belongs to a text field, a menu or a list box, so no hotkey may take it. */
 export function isTyping(target: EventTarget | null): boolean {
     const el = target as (HTMLElement & { type?: string }) | null;
