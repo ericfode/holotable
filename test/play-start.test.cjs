@@ -15,7 +15,7 @@ function load(rel) {
     new Function('require', 'module', 'exports', code)(() => ({}), mod, mod.exports);
     return mod.exports;
 }
-const { startModes, firstMode, botLabel, botAbout, sizeText, initials, nameHue, deckNames, prepText } = load('src/play/modes.ts');
+const { startModes, firstMode, botLabel, botAbout, sizeText, initials, nameHue, deckNames, prepText, meterOf } = load('src/play/modes.ts');
 const { endText } = load('src/play/protocol.ts');
 
 test('a table that offers no people modes keeps the bot as the only mode', () => {
@@ -93,6 +93,18 @@ test("the Play button says what is left to download, from the table's report or 
     assert.equal(prepText(null, null), '');
     assert.equal(prepText({ ready: false, left: 2.5e6, total: 6e6 }, { bytes: 3.1e6 }), '2.5 MB to go');
     assert.equal(prepText({ ready: true, left: 0, total: 6e6 }, { bytes: 3.1e6 }), '');
-    assert.equal(prepText({ ready: false, left: null, total: null, waiting: true }, null), 'the arena is sending it');
+    assert.equal(prepText({ ready: false, left: null, total: null, waiting: true }, null), 'on its way');
     assert.equal(prepText({ ready: false, left: 0, total: 6e6 }, { bytes: 3.1e6 }), '');
+});
+
+test('the loading bar under Play fills with what is here, moves without filling while that is unknown, and says what it waits on', () => {
+    assert.equal(meterOf(null), null);
+    assert.equal(meterOf({ ready: true, left: 0, total: 6e6 }), null);
+    assert.equal(meterOf({ ready: false, left: 2e6, total: 6e6, error: 'cut off' }), null, 'an error shows instead');
+    assert.deepEqual(meterOf({ ready: false, left: 1.5e6, total: 6e6 }), { done: 0.75, text: '4.5 MB of 6.0 MB' });
+    assert.deepEqual(meterOf({ ready: false, left: 0, total: 6e6 }), { done: null, text: 'Starting the rules engine' });
+    assert.deepEqual(meterOf({ ready: false, left: null, total: null, waiting: true }), { done: null, text: 'The arena is sending the files' });
+    assert.deepEqual(meterOf({ ready: false, left: null, total: null, waiting: true, note: 'Waking the games machine · 0:23' }), { done: null, text: 'Waking the games machine · 0:23' });
+    assert.deepEqual(meterOf({ ready: false, left: 3e6, total: 6e6, note: 'Getting Nova' }), { done: 0.5, text: 'Getting Nova' });
+    assert.equal(meterOf({ ready: false, left: null, total: null }), null, 'nothing known, nothing to show');
 });
