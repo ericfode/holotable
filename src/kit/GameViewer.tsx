@@ -376,9 +376,9 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                 s.seek(s.step + by);
             } else if (key === 'ArrowLeft' || code === 'KeyA') {
                 s.seek(s.step - by);
-            } else if (key === ']' || key === 'ArrowDown' || code === 'KeyS') {
+            } else if (code === 'BracketRight' || key === 'ArrowDown' || code === 'KeyS') {
                 s.roundJump(1);
-            } else if (key === '[' || key === 'ArrowUp' || code === 'KeyW') {
+            } else if (code === 'BracketLeft' || key === 'ArrowUp' || code === 'KeyW') {
                 s.roundJump(-1);
             } else if (code === 'KeyE' || code === 'KeyQ') {
                 // the key moments: the marks on the timeline
@@ -398,12 +398,12 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                 s.setSpeed(Math.max(0, s.speed - 1));
             } else if (code === 'Equal' || code === 'NumpadAdd') {
                 s.setSpeed(Math.min(SPEEDS.length - 1, s.speed + 1));
-            } else if (key.toLowerCase() === 'h') {
+            } else if (code === 'KeyH') {
                 const order: Perspective[] = ['god', 'p1', 'p2'];
                 s.setPerspective(order[(order.indexOf(s.perspective) + 1) % order.length]);
-            } else if (key.toLowerCase() === 'c') {
+            } else if (code === 'KeyC') {
                 s.setArt(!s.art);
-            } else if (key.toLowerCase() === 'l' && s.live) {
+            } else if (code === 'KeyL' && s.live) {
                 setPlaying(false);
                 setFollow(true);
             } else {

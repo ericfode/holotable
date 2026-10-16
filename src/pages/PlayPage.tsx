@@ -246,6 +246,11 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const splitIds = useMemo(() => new Set(decide?.actions.find((a) => a.kind === 'distribute')?.distribute?.targets.map((t) => t.id) ?? []), [decide]);
     const drawn = useMemo(() => (cur ? drawnIds(cur, seat) : new Set<string>()), [cur, seat]);
     const keys = useMemo(() => playKeys(decide, cur, seat, drawn), [decide, cur, seat, drawn]);
+    // the keyboard (play/keys.ts): keys wait ARM_MS after each new decision, so a key meant for the last one misses
+    const armed = useRef(0);
+    useEffect(() => {
+        armed.current = performance.now() + ARM_MS;
+    }, [decide?.seq]);
     const pick = useMemo((): Pick => ({
         state: (cid) => (picks.has(cid) ? (selected.has(cid) ? 'picked' : 'pick') : selected.has(cid) ? 'picked' : splitIds.has(cid) ? 'pick' : null),
         pick: (cid) => {
@@ -256,14 +261,11 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 splitApi.current?.add(cid);
             }
         },
-        keyOf: (cid) => (hints ? keys.card.get(cid) ?? null : null)
+        keyOf: (cid) => (hints ? keys.card.get(cid) ?? null : null),
+        keyReady: () => performance.now() >= armed.current
     }), [picks, selected, splitIds, act, hints, keys]);
 
-    // the keyboard (play/keys.ts): the page's keys while this table is on screen and nothing is being typed
-    const armed = useRef(0);
-    useEffect(() => {
-        armed.current = performance.now() + ARM_MS;
-    }, [decide?.seq]);
+    // the page's keys while this table is on screen and nothing is being typed
     const now = useRef({ keys, decide, sending, act, pick, end, help });
     now.current = { keys, decide, sending, act, pick, end, help };
     useEffect(() => {

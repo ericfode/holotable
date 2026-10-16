@@ -93,6 +93,16 @@ test('attack targets: their base is always Q, their units follow on the top row'
     assert.equal(k.primary, null);
 });
 
+test('the rows follow the board, which draws p2 on top, for a person at either seat', () => {
+    const b = board(side('p1', [unit('wampa')]), side('p2', [unit('e1')], [], [unit('mine')]));
+    const drawn = new Set(['p1-base', 'wampa', 'p2-base', 'e1', 'mine']);
+    const d = { ...decide([cardAct(0, 'p1-base', 'base'), cardAct(1, 'e1'), cardAct(2, 'mine', 'hand')], { actionWindow: false }), you: 'p2' };
+    const k = playKeys(d, b, 'p2', drawn);
+    assert.equal(k.card.get('p1-base'), 'KeyA', 'p1 is drawn at the bottom');
+    assert.equal(k.card.get('e1'), 'KeyE', 'p2 is drawn on top');
+    assert.equal(k.card.get('mine'), 'KeyZ', 'the hand row is the person\'s own hand');
+});
+
 test('a choose-a-number menu puts each number on its own key; Cancel is found for Esc', () => {
     const b = board(side('p1'), side('p2'));
     const opts = [0, 1, 2].map((n) => ({ i: n, kind: 'option', label: `#${n}` }));

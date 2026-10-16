@@ -10,6 +10,8 @@ export interface Pick {
     pick: (id: string) => void;
     /** the key that picks the card (play/keys.ts), drawn on it as a key cap; null draws none */
     keyOf?: (id: string) => string | null;
+    /** false while a key may not pick yet (just after a new decision): Enter or Space on a focused card waits too */
+    keyReady?: () => boolean;
 }
 
 export const PickContext = createContext<Pick | null>(null);

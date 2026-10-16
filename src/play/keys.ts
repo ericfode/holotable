@@ -122,8 +122,8 @@ export function pickedCard(a: Action): string | undefined {
 const numeric = (a: Action) => /^#?(\d+)$/.exec(a.label.trim());
 
 /**
- * Every key of one decision. `board` is the snapshot on screen (the bottom seat is `you`, the top the other), `drawn`
- * the cards the board draws as faces. The prompt bar's order here is the order PlayPage's PromptBar draws it in: the
+ * Every key of one decision. `board` is the snapshot on screen (the board draws p2 on top and p1 at the bottom), `you`
+ * the person's seat (their hand is the Z row), `drawn` the cards the board draws as faces. The prompt bar's order here is the order PlayPage's PromptBar draws it in: the
  * tray (each card, then its own buttons), legal cards the board doesn't show, menu options (up to 16; a longer list is
  * a search box), then the buttons other than the main one.
  */
@@ -145,11 +145,11 @@ export function playKeys(decide: DecideMsg | null, board: Snapshot | null, you: 
     const splitIds = new Set(dist?.distribute?.targets.map((t) => t.id) ?? []);
     const keyed = (id: string) => !trayIds.has(id) && ((picks.has(id) && drawn.has(id)) || splitIds.has(id));
 
-    // the board: positions decide the keys, so a card keeps its key from one decision to the next
+    // the board: positions decide the keys, so a card keeps its key from one decision to the next. The rows follow
+    // what the board draws (p2 on top, p1 at the bottom, whichever seat the person has), so a key cap sits on its row.
     const cards: KeyItem[] = [];
     if (board) {
-        const other: Seat = you === 'p1' ? 'p2' : 'p1';
-        for (const [seat, row] of [[other, TOP_KEYS], [you, HOME_KEYS]] as const) {
+        for (const [seat, row] of [['p2', TOP_KEYS], ['p1', HOME_KEYS]] as const) {
             sideOrder(board.players[seat]).forEach((id, i) => {
                 if (keyed(id)) {
                     cards.push({ id, prefer: row[i] ?? null, pool: row });

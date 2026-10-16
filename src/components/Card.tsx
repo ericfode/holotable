@@ -239,7 +239,10 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
             onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    picker!.pick(card.id!);
+                    // a held key, or one pressed as the next decision arrives, picks nothing
+                    if (!e.repeat && picker!.keyReady?.() !== false) {
+                        picker!.pick(card.id!);
+                    }
                 }
             }
         }
