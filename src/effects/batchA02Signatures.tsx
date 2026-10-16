@@ -64,7 +64,7 @@ function Travel({ from, to, card, unit, back = false, exhausted = false, p, star
     const t = easeInOut(phase(p, start, end));
     const control = shift({ ...from, x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }, 27, -49);
     const at = { ...from, ...curved(from, control, to, t) };
-    const destination = to.cardSize ?? { w: 46, h: 64.4 };
+    const destination = to.cardSize ?? { w: 55, h: 77 };
     const width = 42 + (destination.w - 42) * t;
     const height = 58.8 + (destination.h - 58.8) * t;
     const opacity = phase(p, start - .025, start + .035) * (hold ? 1 : 1 - phase(p, end, end + .08));
