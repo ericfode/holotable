@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ChevronLeft, ChevronRight, Image, Pause, Play, RotateCcw, Search, Shapes, Sparkles } from 'lucide-react';
 import { GameViewer } from '../kit/GameViewer';
 import { EffectSoundControls } from '../components/EffectSoundControls';
+import { structuredCard } from '../effects/structured';
 import { CARD_EFFECTS } from '../effects/catalogue';
 import { ABILITY_LANGUAGE, cardAbilities, showcaseAbilities, showcaseLabel, type AbilityKind } from '../effects/abilities';
 import type { CardEffectDefinition } from '../effects/types';
@@ -41,6 +42,7 @@ function EffectsShowcase() {
         const value = initial.get('progress');
         return value !== null && Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value) / 100)) : undefined;
     });
+    const [structured, setStructured] = useState(() => initial.get('recipes') === '1');
     const [nonce, setNonce] = useState(0);
     const [boundary, setBoundary] = useState<'play' | 'regroup-start' | 'next-action' | 'phase-end'>(() => {
         const value = initial.get('stage');
@@ -59,7 +61,7 @@ function EffectsShowcase() {
     const stage = boundary === 'regroup-start' && hasRegroupExample(selected.id) ? 'regroup-start' as const
         : boundary === 'phase-end' && hasPhaseEndExample(selected.id) ? 'phase-end' as const
         : boundary === 'next-action' && hasNextActionExample(selected.id) ? 'next-action' as const : undefined;
-    const preview = useMemo(() => ({ definition: selected, nonce, seat: 'p1' as const, progress, stage }), [selected, nonce, progress, stage]);
+    const preview = useMemo(() => ({ definition: selected, nonce, seat: 'p1' as const, progress, stage, structured }), [selected, nonce, progress, stage, structured]);
     const selectedAbilities = new Set(showcaseAbilities(selected.id).map((beat) => beat.kind));
     const filtered = CARD_EFFECTS.filter((c) => (family === 'all' || c.family === family)
         && (ability === 'all' || cardAbilities(c.id).some((beat) => beat.kind === ability))
@@ -142,6 +144,10 @@ function EffectsShowcase() {
                             </div>
                         </div>
                         <span className="effects-position num">{String(selectedIndex + 1).padStart(2, '0')}<span> / {CARD_EFFECTS.length}</span></span>
+                    </div>
+                    <div className="effects-boundary" role="group" aria-label="Animation renderer">
+                        <button className="btn" aria-pressed={structured} onClick={() => { setStructured(value => !value); setNonce(n => n + 1); }}>Shared JSON recipes</button>
+                        {structured && <span>{structuredCard({ n: selected.name, s: selected.setCode })?.recipe ?? 'Unsupported definition · board result only'}</span>}
                     </div>
                     <div className="effects-example">{stage === 'next-action' ? nextActionExampleLabelFor(selected.id) : stage === 'phase-end' ? phaseEndExampleLabelFor(selected.id) : stage ? regroupExampleLabel(selected.id) : showcaseLabel(selected.id)}</div>
                     {(hasRegroupExample(selected.id) || hasNextActionExample(selected.id) || hasPhaseEndExample(selected.id)) && <div className="effects-boundary" role="group" aria-label="Example timing">

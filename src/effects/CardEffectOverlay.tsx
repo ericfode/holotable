@@ -11,6 +11,7 @@ import { A02_DEFINITIONS } from './batchA02';
 import { easeInOut, easeOut, envelope, phase, useAnimationProgress } from './animationTimeline';
 import { AbilityGlyph, CardGhost, Debris, EnergyBeam, OutcomeVisual, Shockwave, colorOf, hexPoints, offset, outcomeLabel, outcomeStats, screenCardSize, screenRotate, sequence, type EffectBox, type PlacedOutcome, type Point } from './primitives';
 import './effects.css';
+import { StructuredSignature } from './structuredSignature';
 import { BatchA01Signature } from './batchA01Signatures';
 import { BatchA02Signature, batchA02Covers, isBatchA02 } from './batchA02Signatures';
 import { BatchA03Signature, batchA03Covers, isBatchA03 } from './batchA03Signatures';
@@ -551,7 +552,7 @@ function readGeometry(board: HTMLDivElement | null, cue: CardEffectCue, ending?:
         const positionKey = `${outcome.seat}:${Math.round(box.x)}:${Math.round(box.y)}`;
         const slot = positions.get(positionKey) ?? 0;
         positions.set(positionKey, slot + 1);
-        return { outcome, box, from, to, slot, ...(hasAttachmentEntry && outcome.kind === 'draw' ? { routeLabels: false } : {}), key: `${outcome.seat}:${cardKey(outcome.card)}:${outcome.kind}:${index}` };
+        return { outcome, box, from, to, slot, ...(cue.structured || hasAttachmentEntry && outcome.kind === 'draw' ? { routeLabels: false } : {}), key: `${outcome.seat}:${cardKey(outcome.card)}:${outcome.kind}:${index}` };
     });
     return { source, target, friendlyBase: zones[`${cue.seat}:base`], zones, cards, endingCards: Object.fromEntries(ending?.arrivals ?? []), intermediateCards: Object.fromEntries(ending?.intermediate ?? []), pockets, endingPockets: Object.fromEntries(ending?.pockets ?? []), endingCaptured: Object.fromEntries(ending?.captured ?? []), resourceCards, endingResources: Object.fromEntries(ending?.resources ?? []), outcomes };
 }
@@ -669,7 +670,7 @@ function EffectScene({ cue, boardRef, onComplete, previewProgress }: Omit<Props,
     const shake = heavy ? Math.sin(progress * 165) * impact * 4 : 0;
     const stage = progress < .3 ? 'ANTICIPATION' : progress < .63 ? 'RESOLUTION' : 'OUTCOME';
     const signatureSearch = cue.definition.id === 'recruit' && geometry.outcomes.some(item => item.outcome.kind === 'search');
-    const covered = (placed: PlacedOutcome) => isBatchA02(cue) && batchA02Covers(cue, geometry, placed) || isBatchA03(cue) && batchA03Covers(cue, geometry, placed) || isBatchA04(cue) && batchA04Covers(cue, geometry, placed) || isBatchA05(cue) && batchA05Covers(cue, geometry, placed) || isBatchA05Secondary(cue) && batchA05SecondaryCovers(cue, geometry, placed) || isBatchA06Secondary(cue) && batchA06SecondaryCovers(cue, geometry, placed) || isBatchA06(cue) && batchA06Covers(cue, geometry, placed) || isBatchA07Secondary(cue) && batchA07SecondaryCovers(cue, geometry, placed) || isBatchA07(cue) && batchA07Covers(cue, geometry, placed) || isBatchA08Secondary(cue) && batchA08SecondaryCovers(cue, geometry, placed) || isBatchA08(cue) && batchA08Covers(cue, geometry, placed) || isBatchA09Secondary(cue) && batchA09SecondaryCovers(cue, geometry, placed) || isBatchA09(cue) && batchA09Covers(cue, geometry, placed) || isBatchA10(cue) && batchA10Covers(cue, geometry, placed) || isBatchA10Secondary(cue) && batchA10SecondaryCovers(cue, geometry, placed) || isBatchA11Secondary(cue) && batchA11SecondaryCovers(cue, geometry, placed) || isBatchA11(cue) && batchA11Covers(cue, geometry, placed) || isBatchA12Secondary(cue) && batchA12SecondaryCovers(cue, geometry, placed) || isBatchA12(cue) && batchA12Covers(cue, geometry, placed) || isBatchA13Secondary(cue) && batchA13SecondaryCovers(cue, geometry, placed) || isBatchA13(cue) && batchA13Covers(cue, geometry, placed) || isBatchA14Secondary(cue) && batchA14SecondaryCovers(cue, geometry, placed) || isBatchA14(cue) && batchA14Covers(cue, geometry, placed) || isBatchA15Secondary(cue) && batchA15SecondaryCovers(cue, geometry, placed) || isBatchA16Secondary(cue) && batchA16SecondaryCovers(cue, geometry, placed) || isBatchA16(cue) && batchA16Covers(cue, geometry, placed) || isBatchA15(cue) && batchA15Covers(cue, geometry, placed);
+    const covered = (placed: PlacedOutcome) => cue.structured ? !!placed.outcome.sourceDisposal : (isBatchA02(cue) && batchA02Covers(cue, geometry, placed) || isBatchA03(cue) && batchA03Covers(cue, geometry, placed) || isBatchA04(cue) && batchA04Covers(cue, geometry, placed) || isBatchA05(cue) && batchA05Covers(cue, geometry, placed) || isBatchA05Secondary(cue) && batchA05SecondaryCovers(cue, geometry, placed) || isBatchA06Secondary(cue) && batchA06SecondaryCovers(cue, geometry, placed) || isBatchA06(cue) && batchA06Covers(cue, geometry, placed) || isBatchA07Secondary(cue) && batchA07SecondaryCovers(cue, geometry, placed) || isBatchA07(cue) && batchA07Covers(cue, geometry, placed) || isBatchA08Secondary(cue) && batchA08SecondaryCovers(cue, geometry, placed) || isBatchA08(cue) && batchA08Covers(cue, geometry, placed) || isBatchA09Secondary(cue) && batchA09SecondaryCovers(cue, geometry, placed) || isBatchA09(cue) && batchA09Covers(cue, geometry, placed) || isBatchA10(cue) && batchA10Covers(cue, geometry, placed) || isBatchA10Secondary(cue) && batchA10SecondaryCovers(cue, geometry, placed) || isBatchA11Secondary(cue) && batchA11SecondaryCovers(cue, geometry, placed) || isBatchA11(cue) && batchA11Covers(cue, geometry, placed) || isBatchA12Secondary(cue) && batchA12SecondaryCovers(cue, geometry, placed) || isBatchA12(cue) && batchA12Covers(cue, geometry, placed) || isBatchA13Secondary(cue) && batchA13SecondaryCovers(cue, geometry, placed) || isBatchA13(cue) && batchA13Covers(cue, geometry, placed) || isBatchA14Secondary(cue) && batchA14SecondaryCovers(cue, geometry, placed) || isBatchA14(cue) && batchA14Covers(cue, geometry, placed) || isBatchA15Secondary(cue) && batchA15SecondaryCovers(cue, geometry, placed) || isBatchA16Secondary(cue) && batchA16SecondaryCovers(cue, geometry, placed) || isBatchA16(cue) && batchA16Covers(cue, geometry, placed) || isBatchA15(cue) && batchA15Covers(cue, geometry, placed));
     const badgeGroups = groupBadges(geometry.outcomes.filter(({ outcome }) => {
         if (cue.definition.id === 'power-failure' && outcome.kind === 'defeat' && !sameCard(outcome.card, cue.target)) return false;
         if (signatureSearch && ['search', 'draw'].includes(outcome.kind)) return false;
@@ -682,9 +683,9 @@ function EffectScene({ cue, boardRef, onComplete, previewProgress }: Omit<Props,
         const key = `${Math.round(badge.placed.box.x)}:${Math.round(badge.placed.box.y)}`;
         badgeStacks.set(key, [...(badgeStacks.get(key) ?? []), badge]);
     }
-    const stats = geometry.outcomes.filter(placed => !covered(placed) && outcomeStats(placed.outcome, !!cue.exampleLabel) && !geometry.outcomes.some(item => item.outcome.kind === 'defeat' && sameCard(item.outcome.card, placed.outcome.card)));
+    const stats = geometry.outcomes.filter(placed => !covered(placed) && outcomeStats(placed.outcome, !!cue.exampleLabel && !cue.structured) && !geometry.outcomes.some(item => item.outcome.kind === 'defeat' && sameCard(item.outcome.card, placed.outcome.card)));
     const baseOpacity = .15 + envelope(progress, .01, .2, .76) * (heavy ? .46 : .28);
-    return <div className={`card-effect-overlay ce-${cue.definition.id}`} data-effect-progress={progress.toFixed(4)} style={{ '--ce-color': color } as CSSProperties} aria-hidden="true">
+    return <div className={`card-effect-overlay ce-${cue.definition.id}`} data-effect-progress={progress.toFixed(4)} data-effect-renderer={cue.structured ? 'structured' : 'signature'} data-effect-fallbacks={cue.structured?.fallbacks.join(',')} style={{ '--ce-color': color } as CSSProperties} aria-hidden="true">
         <div className="ce-table-vignette" style={{ opacity: baseOpacity }} />
         <svg className="ce-canvas" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ transform: `translate(${shake}px, ${shake * -.37}px)` }}>
             <defs>
@@ -716,7 +717,7 @@ function EffectScene({ cue, boardRef, onComplete, previewProgress }: Omit<Props,
                 </div>;
             })}
             {stats.map(placed => {
-                const stat = outcomeStats(placed.outcome, !!cue.exampleLabel)!;
+                const stat = outcomeStats(placed.outcome, !!cue.exampleLabel && !cue.structured)!;
                 const base = placed.outcome.zone === 'base';
                 const anchor = base && placed.box.stat ? placed.box.stat : { x: placed.box.x + placed.box.w / 2, y: placed.box.y + placed.box.h / 2, w: placed.box.w, h: 24 };
                 return <div key={`stat-${placed.key}`} className={`ce-stat-proof${base ? ' ce-stat-base' : ''}${stat.power != null ? ' ce-stat-pair' : ''}`} style={{ left: `${anchor.x / W * 100}%`, top: `${anchor.y / H * 100}%`, width: `${anchor.w / W * 100}%`, ...(base ? { height: `${anchor.h / H * 100}%` } : {}), '--ce-proof': colorOf(placed.outcome.kind), opacity: phase(progress, .42, .62) } as CSSProperties}>
@@ -726,7 +727,7 @@ function EffectScene({ cue, boardRef, onComplete, previewProgress }: Omit<Props,
         </div>
         <div className="ce-phase-tag"><span className="ce-phase-dot" /><span>{stage}</span><span>{Math.round(progress * 100)}%</span></div>
         <div ref={captionRef} className="ce-caption" style={{ opacity: easeOut(phase(progress, 0, .08)) }}>
-            <span className="ce-caption-mark">✦</span><div><span className="ce-caption-label">{cue.exampleLabel ? 'CHOREOGRAPHED EXAMPLE' : 'RECORDED CARD EFFECT'}</span><strong>{cue.definition.name}</strong><span className="ce-caption-description">{cue.exampleLabel ?? (geometry.outcomes.length ? 'Observed outcomes highlighted on the table' : 'No resolved outcomes are available in this recording')}</span></div>
+            <span className="ce-caption-mark">✦</span><div><span className="ce-caption-label">{cue.exampleLabel ? 'CHOREOGRAPHED EXAMPLE' : 'RECORDED CARD EFFECT'}</span><strong>{cue.definition.name}</strong><span className="ce-caption-description">{cue.structured?.fallbacks.length ? `Shared recipe fallback: ${cue.structured.fallbacks.join(', ')}` : cue.exampleLabel ?? (geometry.outcomes.length ? 'Observed outcomes highlighted on the table' : 'No resolved outcomes are available in this recording')}</span></div>
             <span className="ce-caption-bar" style={{ transform: `scaleX(${1 - progress})` }} />
         </div>
     </div>;
@@ -767,6 +768,7 @@ function Halo({ at, id, radius = 170, opacity = 1 }: { at: Point; id: string; ra
 }
 
 function Signature({ cue, geometry: g, p }: { cue: CardEffectCue; geometry: Geometry; p: number }) {
+    if (cue.structured) return <StructuredSignature geometry={g} p={p} sourceKnown={!!cue.structured.sourceKnown} />;
     if (isBatchA10(cue)) return <BatchA10Signature cue={cue} geometry={g} p={p} />;
     if (isBatchA10Secondary(cue)) return <BatchA10SecondarySignature cue={cue} geometry={g} p={p} />;
     if (isBatchA11Secondary(cue)) return <BatchA11SecondarySignature cue={cue} geometry={g} p={p} />;
