@@ -216,6 +216,9 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     // taking back a move that went (decide.undo): `undoable` once the game has offered it, `undoing` until it is back
     const [undoable, setUndoable] = useState(false);
     const [undoing, setUndoing] = useState(false);
+    // where an Undo is: 'asked' until the table's rewind comes (a decision queued before it is the old one, so Undo goes
+    // on waiting), 'back' after it, when the next decision ends it
+    const undoAt = useRef<'none' | 'asked' | 'back'>('none');
     const [note, setNote] = useState<string | null>(null);
     // the last decision whose only answer was given by itself: a stopped (or refused) one waits for the person
     const autoSeq = useRef(-1);
@@ -267,7 +270,10 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 setShown((s) => (s && JSON.stringify(s.cur) === JSON.stringify(snap) ? s : { prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 setDecide(m);
                 setSending(false);
-                setUndoing(false);
+                if (undoAt.current !== 'asked') {
+                    undoAt.current = 'none';
+                    setUndoing(false);
+                }
                 setProblem(null);
                 if (m.undo) {
                     setUndoable(true);
@@ -275,6 +281,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
             } else if (m.t === 'rewind') {
                 // the move is back (the board as it was then, the moves after it gone), or could not be: either way the
                 // decision that follows says what to do next, and until it comes the old one is gone and Undo waits
+                undoAt.current = 'back';
                 setDecide(null);
                 if (m.state) {
                     const snap = toSnapshot(m.state, seat);
@@ -364,6 +371,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         if (end || undoing || held || sending || !(decide ? decide.undo : undoable)) {
             return;
         }
+        undoAt.current = 'asked';
         setUndoing(true);
         setProblem(null);
         setNote(null);
@@ -371,6 +379,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         try {
             await table.act(id, { t: 'undo', seq: decide?.seq ?? -1 });
         } catch (e) {
+            undoAt.current = 'none';
             setUndoing(false);
             setProblem(String((e as Error).message ?? e));
         }
