@@ -248,5 +248,5 @@ export function isTyping(target: EventTarget | null): boolean {
     if (el.isContentEditable) {
         return true;
     }
-    return !!el.closest?.('[role="listbox"],[role="combobox"],[role="textbox"],[role="menu"],[role="slider"],[role="spinbutton"],[role="radiogroup"]');
+    return !!el.closest?.('[role="listbox"],[role="combobox"],[role="textbox"],[role="menu"],[role="slider"],[role="spinbutton"],[role="radio"],[role="radiogroup"]');
 }
