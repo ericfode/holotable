@@ -11,6 +11,7 @@ import type { CardRef, Seat, Snapshot } from '../data/types';
 import { cardTextBySet } from '../lib/cardText';
 import { createSettingsStore, SettingsProvider } from '../lib/settings';
 import { hashParam } from '../lib/route';
+import { reportOnScreen } from '../kit/feedback';
 import { PickContext, type Pick } from '../play/pick';
 import { BoardLines, type Trail } from '../play/BoardLines';
 import { TableContext, type DeckOption, type TableOptions } from '../play/client';
@@ -261,6 +262,16 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         queue.current.push(m);
         pump();
     }, setDown), [table, id, pump]);
+
+    // what this table shows, for a host page's feedback box (kit/feedback.ts): read when the person opens it
+    const onScreen = useRef<Record<string, unknown> | null>(null);
+    onScreen.current = {
+        kind: 'play', game: id, seat, bot, step: shown?.n ?? 0, round: shown?.cur.round ?? null, phase: shown?.cur.phase ?? null,
+        prompt: decide ? { text: promptText(decide), title: decide.prompt.promptTitle ?? decide.prompt.title, choices: decide.actions.map((a) => a.label) } : null,
+        sending, held: held?.text ?? null, problem, down, end: end ? { winner: end.winner, outcome: end.outcome, error: end.error } : null,
+        moves: log.slice(0, 8).map((m) => ({ n: m.n, seat: m.seat, label: m.label })), board: shown?.cur ?? null
+    };
+    useEffect(() => reportOnScreen(() => onScreen.current), []);
 
     const send = useCallback(async (seq: number, a: Action, split?: { id: string; amount: number }[]) => {
         setSending(true);
