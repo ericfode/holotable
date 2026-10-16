@@ -311,7 +311,7 @@ export function CardInspector({ focus, score }: CardZoomProps) {
     const more = useMoreBelow(ref, focus);
     return (
         <div className="flex flex-col gap-3" ref={ref}>
-            <div className="grid place-items-center" style={{ height: 'min(350px, 44vh)' }}>
+            <div className="grid place-items-center" style={{ height: 'min(420px, 53vh)' }}>
                 <motion.div key={`${focus.card.s}:${focus.back}`} initial={{ opacity: 0.3, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.18 }}>
                     <Card card={focus.card} back={focus.back} shape={focus.shape} size="xl" kind={focus.kind} face={faceOf(focus, text)} />
                 </motion.div>
@@ -335,7 +335,7 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const wide = focus.shape === 'wide';
-    const cw = Math.min(wide ? 300 : 220, vw - 48);
+    const cw = Math.min(wide ? 360 : 264, vw - 48);
     const ch = wide ? cw * 5 / 7 : cw * 7 / 5;
     const W = cw + 24;
     const H = ch + 96;

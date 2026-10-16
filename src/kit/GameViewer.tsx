@@ -638,7 +638,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                                     {lastAction ? (
                                         <>
                                             <span className="eyebrow">Last play · step {game.steps[lastAction.index].n}</span>
-                                            <ActionIcon cls={lastAction.cls} seat={lastAction.seat} card={lastAction.card} outcome={lastAction.outcome} size={150} caption={describe(lastAction, bots[lastAction.seat])} />
+                                            <ActionIcon cls={lastAction.cls} seat={lastAction.seat} card={lastAction.card} outcome={lastAction.outcome} size={180} caption={describe(lastAction, bots[lastAction.seat])} />
                                         </>
                                     ) : null}
                                     <span className="text-faint text-[12px]">Hover or tap a card on the board to see it here at full size.</span>

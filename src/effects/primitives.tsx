@@ -187,7 +187,7 @@ export function UpgradePlay({ from, to, card, p, start = .22, end = .7, color = 
     const t = easeInOut(phase(p, start, end)), middle = screenShift({ ...from, ...mix(from, to, .5) }, 20, -35);
     const at = { ...from, x: (1 - t) ** 2 * from.x + 2 * (1 - t) * t * middle.x + t * t * to.x,
         y: (1 - t) ** 2 * from.y + 2 * (1 - t) * t * middle.y + t * t * to.y };
-    const source = from.cardSize ?? { w: 46, h: 64.4 }, w = to.w * (to.sx ?? 1), h = to.h * (to.sy ?? 1), attached = phase(p, end - .05, end);
+    const source = from.cardSize ?? { w: 55, h: 77 }, w = to.w * (to.sx ?? 1), h = to.h * (to.sy ?? 1), attached = phase(p, end - .05, end);
     return <><path d={`M${from.x} ${from.y} Q${middle.x} ${middle.y} ${to.x} ${to.y}`} stroke={color} opacity={envelope(p, start, start + .04, end + .04)} />
         <ScreenPixels at={at} opacity={1 - attached}><CardGhost card={card} box={{ w: source.w * (1 - .6 * t), h: source.h * (1 - .6 * t) }} /></ScreenPixels>
         <ScreenPixels at={to} opacity={attached} color={color}><defs><clipPath id={clipId}><rect x={-w / 2 + 2} y={-h / 2} width={Math.max(0, w - 4)} height={h} /></clipPath></defs><rect x={-w / 2} y={-h / 2} width={w} height={h} rx="3" fill="#25251a" strokeWidth="1" /><text clipPath={`url(#${clipId})`} textAnchor="middle" y="2" fill="currentColor" stroke="none" style={{ font: '700 7px sans-serif' }}>{card.n}</text></ScreenPixels></>;
@@ -329,7 +329,7 @@ export function OutcomeVisual({ placed, p }: { placed: PlacedOutcome; p: number 
     }
     if (outcome.kind === 'attach' || outcome.kind === 'capture' || outcome.kind === 'defeat' && outcome.zone === 'leader') {
         const t = easeInOut(phase(p, .22, .7)), at = { ...placed.from, ...mix(placed.from, placed.to, t) };
-        const chip = outcome.kind === 'attach', a = chip ? { w: placed.from.w * (at.sx ?? 1), h: placed.from.h * (at.sy ?? 1) } : placed.from.cardSize ?? { w: 46, h: 64.4 };
+        const chip = outcome.kind === 'attach', a = chip ? { w: placed.from.w * (at.sx ?? 1), h: placed.from.h * (at.sy ?? 1) } : placed.from.cardSize ?? { w: 55, h: 77 };
         const b = placed.to.cardSize ?? { w: placed.to.w * (at.sx ?? 1), h: placed.to.h * (at.sy ?? 1) };
         const exhausted = outcome.kind === 'defeat' && outcome.leader?.x === 1;
         return <>{placed.from.exact && <AttachmentMask at={placed.from} p={p} start={.22} />}<ScreenPixels at={at} color={color} opacity={phase(p, .2, .3)}><g transform={`rotate(${exhausted ? 10 * t : -6 * Math.sin(t * Math.PI)}) scale(${exhausted ? 1 - .06 * t : 1})`} opacity={exhausted ? 1 - .28 * t : 1}>
