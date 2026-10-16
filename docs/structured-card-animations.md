@@ -91,3 +91,12 @@ node scripts/verify-structured-animations.mjs --url http://127.0.0.1:5198 --out 
 ```
 
 Scaling requires adding one effect-shape mapping and evidence adapter per mechanical family, plus representative compound tests/pixels. A newly imported definition with existing shapes automatically takes the shared path. Add an exact-print override only when reviewed bespoke choreography adds meaning the shared net-outcome presentation cannot convey. Future chronological composition must bind real ordered event outcomes, not manufacture target/branch/order decisions from static JSON.
+
+
+## Semantic vocabulary refinement
+
+Eric's follow-up asks for the semantic nature of the action to remain legible throughout the vocabulary, beyond a harmful/beneficial color distinction. The shared default now uses a sharp accelerating strike/angular arrival for damage, local shell assembly for Shield, curved gathering/mending for healing, and rising stepped markers for buffs. These are reusable outcome-level primitives, with no per-card IDs. Existing physical movement, controller transfer, removal and readiness retain their own visual verbs. See the [action grammar](card-animation-language.md#shared-default-semantic-action-grammar).
+
+`sharedEffectRole` is a small shared mapping; `sharedSemanticMotion` selects the four new primitives after receipt validation. The generic SVG counterpart is suppressed using that same mapping, preserving HTML counters and outcome labels. A static Shield/buff clause alone cannot produce a positive effect. Explicit sourceCard/unknown-source damage still receives a local hit without an invented event projectile. Existing overrides, physical identity/evidence predicates and actual recorded endings are unchanged.
+
+The comparative fixture (`test/fixtures/semantic-vocabulary.cjs`) uses four legal synthetic actions against the same physical Wampa/table: Open Fire, Moment of Peace, Repair and Tactical Advantage. Paid costs include actual missing-aspect penalties; Shield/buff/heal outcomes exist only in the supplied endings. Movement/control validation uses existing Waylay and forced-shared Change of Heart examples, preserving the default override. Before frames are from 1c9ce41; final captures are fingerprinted separately. Evidence is in sibling `evidence/semantic-after-delivery`, `semantic-before-final`, `semantic-routes-approved` and the normal-speed `shared-semantic-vocabulary-final.mp4` comparison. No new full-card or engine-admission count is claimed.
