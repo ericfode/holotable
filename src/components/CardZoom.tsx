@@ -367,7 +367,8 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
     let top: number;
     if (vw < 640) {
         left = (vw - W) / 2;
-        top = r.top > vh / 2 ? Math.max(8, r.top - H - 8) : Math.min(vh - H - 8, r.bottom + 8);
+        // above or below the card, then kept inside the window (the card's rect is from before any resize)
+        top = Math.max(8, Math.min(vh - H - 8, r.top > vh / 2 ? r.top - H - 8 : r.bottom + 8));
     } else {
         left = r.right + 12 + W < vw ? r.right + 12 : Math.max(8, r.left - 12 - W);
         top = Math.max(8, Math.min(vh - H - 8, r.top - 20));
