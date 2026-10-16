@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { BrainCircuit, Coins, Flag, Layers, Library, Skull, Sparkle } from 'lucide-react';
 import { Card, CardBack, CapturedPocket, regretTag, type CardValue, type Focus } from './Card';
@@ -41,6 +41,8 @@ interface BoardProps {
     reserveDiscardPermissions?: Record<Seat, string[]>;
     /** Keep an explicit base-protection row stable across grant/consumption/expiry. */
     reserveBaseProtection?: Record<Seat, boolean>;
+    /** drawn between the two sides instead of the centre line (play mode: the decision, where the eyes are); keep it stable, the board is memoised */
+    center?: ReactNode;
 }
 
 const spring = { type: 'spring', stiffness: 420, damping: 32 } as const;
@@ -620,14 +622,14 @@ function BoardImpl(props: BoardProps) {
     return (
         <div className="flex flex-col gap-2">
             <Side seat="p2" props={props} sl={sls?.p2 ?? null} spots={spots?.p2 ?? null} />
-            {view ? <ScoreLine view={view} bots={bots} state={state} values={values} /> : (
+            {props.center ?? (view ? <ScoreLine view={view} bots={bots} state={state} values={values} /> : (
                 <div className="flex items-center gap-3 px-2">
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-p2/40 to-transparent" />
                     <span className="eyebrow">round {state.round} · {state.phase}</span>
                     {props.score === null && <span className="text-faint text-[11px]">no score for this game</span>}
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-p1/40 to-transparent" />
                 </div>
-            )}
+            ))}
             <PlayerEffectRail state={state} reserve={props.reservePlayerEffect} />
             <Side seat="p1" props={props} sl={sls?.p1 ?? null} spots={spots?.p1 ?? null} />
         </div>

@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { motion } from 'motion/react';
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, X } from 'lucide-react';
 import { Card, fmtCardValue, regretTag, type CardValue, type Focus } from './Card';
 import type { ScoreView } from '../data/score';
 import { logit, sigmoid, winProb } from '../data/calibrate';
@@ -329,8 +329,12 @@ export function CardInspector({ focus, score }: CardZoomProps) {
 /**
  * The hovered card, enlarged next to the pointer, for layouts with no side panel beside the board (narrow windows,
  * compact embeds, phones). Fixed to the viewport and click-through.
+ *
+ * With `onClose` it is a card opened by a tap (Focus.touch): it takes taps (its own buttons, `children`, under the
+ * facts), and a tap anywhere outside it, its close button or Esc closes it, so it never stays open by itself and the
+ * tap that closes it reaches nothing under it.
  */
-export function FloatingZoom({ focus, score }: CardZoomProps) {
+export function FloatingZoom({ focus, score, onClose, children }: CardZoomProps & { onClose?: () => void; children?: ReactNode }) {
     const text = useFocusText(focus);
     const ref = useRef<HTMLDivElement>(null);
     // how much taller the facts are than the 96px guess (long names, upgrades, captives), measured before paint
@@ -370,6 +374,21 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
             setExtra((e) => e + h - H);
         }
     });
+    // Esc closes an opened card before any page key sees it (a page's Esc would cancel the decision)
+    useEffect(() => {
+        if (!onClose) {
+            return;
+        }
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !e.defaultPrevented) {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [onClose]);
     const r = focus.rect ?? { left: vw / 2, right: vw / 2, top: vh / 2, bottom: vh / 2 };
     let left: number;
     let top: number;
@@ -381,11 +400,24 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
         left = r.right + 12 + W < vw ? r.right + 12 : Math.max(8, r.left - 12 - W);
         top = Math.max(8, Math.min(vh - H - 8, r.top - 20));
     }
-    return (
-        <motion.div ref={ref} className="panel !bg-panel fixed z-50 p-3 flex flex-col gap-2 pointer-events-none shadow-2xl" style={{ left, top, width: W }}
-            initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.12 }} aria-hidden="true">
+    const panel = (
+        <motion.div ref={ref} className={`panel !bg-panel fixed z-50 p-3 flex flex-col gap-2 shadow-2xl ${onClose ? 'zoom-open' : 'pointer-events-none'}`} style={{ left, top, width: W }}
+            initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.12 }}
+            {...(onClose ? { role: 'dialog', 'aria-label': focus.card.n } : { 'aria-hidden': true })}>
             <Card card={focus.card} back={focus.back} shape={focus.shape} size="xl" kind={focus.kind} width={cw} face={faceOf(focus, text)} />
+            {onClose && <button className="zoom-close" onClick={onClose} aria-label="Close"><X size={16} /></button>}
             <CardFacts focus={focus} score={score} compact />
+            {children}
         </motion.div>
+    );
+    if (!onClose) {
+        return panel;
+    }
+    return (
+        <>
+            {/* the tap outside closes the card and goes no further */}
+            <div className="zoom-scrim" onClick={onClose} aria-hidden="true" />
+            {panel}
+        </>
     );
 }

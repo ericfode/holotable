@@ -122,6 +122,47 @@ export function endText(end: EndMsg, seat: Seat, opponent: string): { head: stri
     return { head, detail };
 }
 
+/** The card an action picks or acts on, by id: a card action's card, a display pick's shown card, a per-card button's card. */
+function actionCardId(a: Action): string | undefined {
+    return a.kind === 'card' ? a.card?.id : a.kind === 'displayCard' ? String(a.arg) : a.kind === 'perCardButton' ? a.cardUuid : undefined;
+}
+
+/**
+ * The word on a card's move button (a card opened by a tap shows its moves): Play for a card from the hand (or any zone
+ * but the board and the base zone), Attack or use for a unit, Use for a leader or base, Select or Unselect in a prompt
+ * that picks several cards, Choose in any other card prompt; a per-card button keeps its own word.
+ */
+export function moveVerb(a: Action, m: DecideMsg): string {
+    if (a.kind === 'perCardButton') {
+        return a.label.split(':')[0];
+    }
+    if (m.prompt.selectCardMode === 'multiple') {
+        return m.prompt.selected.includes(actionCardId(a) ?? '') ? 'Unselect' : 'Select';
+    }
+    if (m.prompt.actionWindow && a.kind === 'card') {
+        const zone = a.card?.zone;
+        return zone === 'groundArena' || zone === 'spaceArena' ? 'Attack or use' : zone === 'base' ? 'Use' : 'Play';
+    }
+    return 'Choose';
+}
+
+/** A move in a few words, for the Undo strip while it waits: "Play Neel", "Pass", "Split 3 damage". */
+export function moveText(a: Action, m: DecideMsg): string {
+    if (a.kind === 'distribute') {
+        return `Split ${a.distribute?.amount ?? ''} ${a.distribute?.tokenType ?? a.distribute?.type ?? ''}`.replace(/\s+/g, ' ').trim();
+    }
+    if (a.kind === 'perCardButton') {
+        const [what, ...rest] = a.label.split(':');
+        return rest.length ? `${what}: ${rest.join(':')}` : what;
+    }
+    if (a.kind === 'card' || a.kind === 'displayCard') {
+        const id = actionCardId(a);
+        const name = a.card?.id === 'hidden' ? 'a hidden card' : a.card?.n ?? m.prompt.cards?.find((c) => c.id === id)?.n ?? a.label;
+        return `${moveVerb(a, m)} ${name}`;
+    }
+    return a.label.replace(/^#/, '');
+}
+
 /** Engine prompt texts as a sentence: "Choose an action", a menu title, or a card prompt. */
 export function promptText(m: DecideMsg): string {
     const p = m.prompt;

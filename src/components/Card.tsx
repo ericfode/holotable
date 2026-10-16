@@ -1,4 +1,4 @@
-import { useContext, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useContext, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { cardImageUrl, tileLook } from '../lib/cards';
 import { isToken } from '../lib/cardText';
 import { useSettings } from '../lib/settings';
@@ -6,6 +6,7 @@ import type { CardRef, Seat, UnitRef, UpgradeRef } from '../data/types';
 import { rowColor } from '../data/terms';
 import { digitsOf, unitText } from '../data/format';
 import { PickContext } from '../play/pick';
+import { keyboardFocus } from '../lib/touch';
 import { Kbd } from './Keys';
 
 /** Leader fronts and bases are printed landscape ('wide'); everything else, a deployed leader included, is portrait ('tall'). */
@@ -62,6 +63,11 @@ export interface Focus {
     hpLeft?: number;
     /** where the card is on screen, for the floating zoom */
     rect?: { left: number; top: number; right: number; bottom: number };
+    /**
+     * opened by a tap on a touch screen: it stays open until the person closes it (a tap outside it, its close button, Esc),
+     * where a hovered card closes when the pointer leaves
+     */
+    touch?: boolean;
 }
 
 interface Props {
@@ -208,15 +214,49 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
         const r = el.getBoundingClientRect();
         return { card, back, shape, unit, note, value, kind, hpLeft, rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } };
     };
+    // how the last press on this card was made: a finger opens the card (onFocus with touch) instead of hovering or picking it
+    const press = useRef('mouse');
+    // the card was shown because it took focus from a key, so losing focus hides it (and nothing else does)
+    const byFocus = useRef(false);
     const focus = onFocus
         ? {
-            onMouseEnter: (e: MouseEvent<HTMLDivElement>) => onFocus(focusOf(e.currentTarget)),
-            onFocus: (e: FocusEvent<HTMLDivElement>) => onFocus(focusOf(e.currentTarget)),
-            onMouseLeave: onLeave,
-            onBlur: onLeave,
+            // a mouse or pen hovers; a finger's enter and leave come with every tap, which opens the card below instead
+            onPointerEnter: (e: PointerEvent<HTMLDivElement>) => {
+                if (e.pointerType !== 'touch') {
+                    onFocus(focusOf(e.currentTarget));
+                }
+            },
+            onPointerLeave: (e: PointerEvent<HTMLDivElement>) => {
+                if (e.pointerType !== 'touch') {
+                    onLeave?.();
+                }
+            },
+            // only focus a key moved (Tab, or ⇧ + the card's key) shows the card: a tap or a click focuses it too
+            onFocus: (e: FocusEvent<HTMLDivElement>) => {
+                byFocus.current = keyboardFocus(e.currentTarget);
+                if (byFocus.current) {
+                    onFocus(focusOf(e.currentTarget));
+                }
+            },
+            onBlur: () => {
+                if (byFocus.current) {
+                    byFocus.current = false;
+                    onLeave?.();
+                }
+            },
             tabIndex: 0
         }
         : {};
+    /** A tap on a touch screen opens the card (true); a split target takes its tap at once. Any other press is a click. */
+    const opened = (el: HTMLElement): boolean => {
+        const touch = press.current === 'touch';
+        press.current = 'mouse';
+        if (!touch || !onFocus || (pickState && picker?.instant?.(card.id!))) {
+            return false;
+        }
+        onFocus({ ...focusOf(el), touch: true });
+        return true;
+    };
     const lensed = value && (value.v != null || value.regret != null);
     const heat = value?.heat ?? 0;
     // board-size cards print their name in a bar at the bottom (one line over art, up to two on a tile)
@@ -231,11 +271,22 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     // tokens (Battle Droid, Shield…) have no set number; a text face that says "Token unit" makes the tag redundant
     const token = (unit?.t === 1 || isToken(card)) && (showImg || !face);
     const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : '', pickState === 'pick' ? 'pickable' : pickState === 'picked' ? 'picked' : ''].filter(Boolean).join(' ');
+    const pressProps = onFocus || pickState
+        ? {
+            onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+                press.current = e.pointerType;
+            }
+        }
+        : {};
     const pickProps = pickState
         ? {
             role: 'button',
             tabIndex: 0,
-            onClick: () => picker!.pick(card.id!),
+            onClick: (e: MouseEvent<HTMLDivElement>) => {
+                if (!opened(e.currentTarget)) {
+                    picker!.pick(card.id!);
+                }
+            },
             onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -246,7 +297,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
                 }
             }
         }
-        : {};
+        : onFocus ? { onClick: (e: MouseEvent<HTMLDivElement>) => void opened(e.currentTarget) } : {};
     const style = {
         ...(width ? { '--w': `${width}px` } : {}),
         // the glow: the card's score colour, stronger the closer it is to the most valuable unit on the table
@@ -256,7 +307,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
         } : {})
     } as CSSProperties;
     return (
-        <div className={cls} style={style} title={card.n} {...focus} {...pickProps}
+        <div className={cls} style={style} title={card.n} {...focus} {...pressProps} {...pickProps}
             data-effect-card={effectIdentity ? card.n : undefined} data-effect-code={effectIdentity ? card.s ?? undefined : undefined} data-effect-id={effectIdentity ? card.id : undefined} data-effect-base={kind === 'base' ? '' : undefined} data-effect-zone={kind === 'leader' ? 'leader' : undefined}
             aria-label={(leader ? 'Leader ' : '') + card.n + (unit ? `, ${unit.p} power, ${hp} HP left${unit.d > 0 ? ` (${unit.d} damage)` : ''}` : '') + (unit?.sn ? ', Sentinel' : '') + (unit?.cap?.length ? `, holds captured ${unit.cap.map((c) => c.n).join(', ')}` : '') + (exhausted ? ', exhausted' : '') + (value?.v != null ? `, worth ${fmtCardValue(value.v, value.digits)}` : '')}>
             {showImg ? (

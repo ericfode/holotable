@@ -12,6 +12,11 @@ export interface Pick {
     keyOf?: (id: string) => string | null;
     /** false while a key may not pick yet (just after a new decision): Enter or Space on a focused card waits too */
     keyReady?: () => boolean;
+    /**
+     * true when a tap on a touch screen picks the card at once (a split target: one more there, which the split panel
+     * takes back); any other tap opens the card with its moves (Card's onFocus with touch), so a tap never plays by accident
+     */
+    instant?: (id: string) => boolean;
 }
 
 export const PickContext = createContext<Pick | null>(null);
