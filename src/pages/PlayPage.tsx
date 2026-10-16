@@ -153,7 +153,7 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
     };
     const deckExtra = importDeck && <DeckImport onImport={importDeck} onAdded={added} />;
     return (
-        <div className={`mx-auto px-4 flex flex-col ${people ? 'max-w-3xl py-10 gap-8' : 'max-w-5xl py-4 sm:py-8 gap-4'}`}>
+        <div className={`mx-auto px-4 flex flex-col max-w-5xl ${people ? 'py-10 gap-8' : 'py-4 sm:py-8 gap-4'}`}>
             {people && (
                 <header className="flex flex-col gap-2">
                     <span className="text-xs uppercase tracking-[0.16em] text-gold font-mono">Play mode</span>
