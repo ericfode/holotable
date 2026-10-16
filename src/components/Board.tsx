@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { BrainCircuit, Coins, Flag, Layers, Library, Skull, Sparkle } from 'lucide-react';
 import { Card, CardBack, CapturedPocket, regretTag, type CardValue, type Focus } from './Card';
 import { useSettings } from '../lib/settings';
+import { boardSeats } from '../lib/tableLayout';
 import { humanize } from '../lib/cards';
 import type { PlayerSnap, Seat, Snapshot, UnitRef } from '../data/types';
 import type { UnitIds } from '../data/derive';
@@ -45,6 +46,11 @@ interface BoardProps {
     center?: ReactNode;
     /** play mode: this seat's hand is a fan on a touch screen (Hand, useHandFan) */
     fanHand?: Seat;
+    /** The explicit viewer seat at the bottom; unrelated to the actor/initiative. */
+    bottomSeat?: Seat;
+    /** Play tables use a fixed viewport with independently scrollable sides and prompt. */
+    tableLayout?: boolean;
+    cardSize?: { unit: number; hand: number };
 }
 
 const spring = { type: 'spring', stiffness: 420, damping: 32 } as const;
@@ -141,8 +147,8 @@ const GAP = 8;
 const LANE_X = 2 * (8 + 1);
 // a row of cards in a lane (card height 100 × 7/5, plus the gap)
 const ROW_H = 148;
-const laneWidth = (cols: number) => LANE_X + cols * CARD_W + (cols - 1) * GAP;
-const colsIn = (w: number) => Math.max(1, Math.floor((w - LANE_X + GAP) / (CARD_W + GAP)));
+const laneWidth = (cols: number, cardW = CARD_W) => LANE_X + cols * cardW + (cols - 1) * GAP;
+const colsIn = (w: number, cardW = CARD_W) => Math.max(1, Math.floor((w - LANE_X + GAP) / (cardW + GAP)));
 const rowsOf = (n: number, cols: number) => Math.ceil(n / cols);
 
 /**
@@ -150,16 +156,16 @@ const rowsOf = (n: number, cols: number) => Math.ceil(n / cols);
  * lanes fit in two rows (weights null: today's look); a crowded lane otherwise gets the columns it needs from the other
  * one, so the deeper lane is as shallow as it can be (ties: fewest rows in all). Weights are fr values for the tracks.
  */
-export function laneSplit(total: number, ground: number, space: number): { rows: number; weights: [number, number] | null } {
-    const even = colsIn((total - GAP) / 2);
+export function laneSplit(total: number, ground: number, space: number, cardW = CARD_W): { rows: number; weights: [number, number] | null } {
+    const even = colsIn((total - GAP) / 2, cardW);
     let rows = Math.max(rowsOf(ground, even), rowsOf(space, even));
     if (total <= 0 || rows <= 2) {
         return { rows, weights: null };
     }
     let sum = rowsOf(ground, even) + rowsOf(space, even);
     let best: [number, number] | null = null;
-    for (let cg = 1; laneWidth(cg) + GAP + laneWidth(1) <= total; cg++) {
-        const cs = colsIn(total - GAP - laneWidth(cg));
+    for (let cg = 1; laneWidth(cg, cardW) + GAP + laneWidth(1, cardW) <= total; cg++) {
+        const cs = colsIn(total - GAP - laneWidth(cg, cardW), cardW);
         const r = Math.max(rowsOf(ground, cg), rowsOf(space, cs));
         const s = rowsOf(ground, cg) + rowsOf(space, cs);
         if (r < rows || (r === rows && s < sum)) {
@@ -168,7 +174,7 @@ export function laneSplit(total: number, ground: number, space: number): { rows:
             sum = s;
         }
     }
-    return { rows, weights: best && [laneWidth(best[0]), laneWidth(best[1])] };
+    return { rows, weights: best && [laneWidth(best[0], cardW), laneWidth(best[1], cardW)] };
 }
 
 interface SideBox {
@@ -208,15 +214,15 @@ function useSideBox(row: RefObject<HTMLDivElement | null>, hq: RefObject<HTMLDiv
  * The side's layout: ground | base | space when there is room (today's look), else the base on top of the two lanes.
  * A crowded side also moves its base on top when that makes it clearly shorter, so the lanes get the middle's width.
  */
-export function sideLayout(box: SideBox, ground: number, space: number): { stack: boolean; weights: [number, number] | null } {
-    const stacked = laneSplit(box.row - GAP, ground, space);
+export function sideLayout(box: SideBox, ground: number, space: number, cardW = CARD_W): { stack: boolean; weights: [number, number] | null } {
+    const stacked = laneSplit(box.row - GAP, ground, space, cardW);
     if (!box.wide) {
         return { stack: true, weights: stacked.weights };
     }
     // the base column is the block plus its px-2 padding
-    const three = laneSplit(box.row - (box.hqW + 16) - 2 * GAP, ground, space);
+    const three = laneSplit(box.row - (box.hqW + 16) - 2 * GAP, ground, space, cardW);
     // only when it saves more than a row of cards: a small gain isn't worth the base leaving the middle
-    const stack = box.row > 0 && three.rows > 2 && box.hqH + GAP + stacked.rows * ROW_H + ROW_H < three.rows * ROW_H;
+    const stack = box.row > 0 && three.rows > 2 && box.hqH + GAP + stacked.rows * (cardW * 1.4 + GAP) + ROW_H < three.rows * (cardW * 1.4 + GAP);
     return stack ? { stack, weights: stacked.weights } : { stack, weights: three.weights };
 }
 
@@ -226,7 +232,7 @@ function Lane({ label, seat, arena, units, ids, prevUnits, prevIds, leader, hiLe
 }) {
     const total = sl ? sl.side.rows[arena] ?? 0 : 0;
     return (
-        <div className="lane" data-effect-zone={arena} data-effect-reserved-slots={reservedSlots || undefined}>
+        <div className="lane" data-effect-zone={arena} data-effect-reserved-slots={reservedSlots || undefined} data-unit-count={units.length}>
             <span className="lane-label">{label}{sl && additive(sl) && has(sl, arena) && units.length > 0 && (
                 <RowChip sl={sl} id={arena} v={total} what={`This player's ${label} units together`} className="!tracking-normal" />
             )}</span>
@@ -309,7 +315,7 @@ function Hq({ seat, p, prev, bot, step, onFocus, onLeave, onHiLeader, hqRef, sl,
     // v2: the hand is still listed; handCount matters only when it says otherwise
     const handN = p.handCount ?? p.hand.length;
     return (
-        <div ref={hqRef} className="flex flex-col items-center gap-2 min-w-0">
+        <div ref={hqRef} className="hq flex flex-col items-center gap-2 min-w-0">
             <div className="relative base-frame">
                 <Card card={p.base} shape="wide" kind="base" hpLeft={left} note={baseNote} onFocus={onFocus} onLeave={onLeave} value={sl && has(sl, 'base') ? baseValue(sl) : null} />
                 <svg viewBox="0 0 80 80" className="absolute -right-3 -top-3 size-14 drop-shadow-lg pointer-events-none z-[4]" aria-label={`Base HP ${left} of ${p.base.hp}`}>
@@ -325,9 +331,9 @@ function Hq({ seat, p, prev, bot, step, onFocus, onLeave, onHiLeader, hqRef, sl,
             {(reserveProtection || !!p.base.damageProtection?.length) && <div className="base-protection" data-effect-zone="base-protection" aria-hidden={!p.base.damageProtection?.length ? true : undefined}>
                 {p.base.damageProtection?.map(effect => <span key={effect.id} data-effect-base-protection={effect.id} data-effect-source={effect.sourceId} data-effect-duration="phase" role="status">NEXT DAMAGE<br /><small>ONE USE · PHASE</small></span>)}
             </div>}
-            <div className="flex items-center gap-2.5">
+            <div className="hq-leader flex items-center gap-2.5">
                 {p.leader && <LeaderSlot p={p} onFocus={onFocus} onLeave={onLeave} onHi={onHiLeader} sl={sl} />}
-                <div className={`flex flex-col gap-1 min-w-0${p.resources ? ' resources-explicit' : ''}`}>
+                <div className={`hq-meta flex flex-col gap-1 min-w-0${p.resources ? ' resources-explicit' : ''}`}>
                     <span className="flex items-center gap-1.5 min-w-0">
                         <span className="font-display text-[13px] font-semibold truncate max-w-[9rem]" style={{ color: 'var(--seat)' }}>{bot}</span>
                         {p.out ? <span className="seat-tag" title={`Done for this action phase: claimed the initiative, or both players passed${p.passed ? ' (passed its last action)' : ''}`}>out</span>
@@ -387,7 +393,8 @@ function useHandFan(ref: RefObject<HTMLDivElement | null>, on: boolean, n: numbe
             return;
         }
         const fit = () => {
-            const step = n > 1 ? Math.max(14, Math.min(HAND_CARD + 2, (el.clientWidth - HAND_CARD) / (n - 1))) : HAND_CARD;
+            const card = el.querySelector<HTMLElement>('.hand-card')?.offsetWidth ?? HAND_CARD;
+            const step = n > 1 ? Math.max(4, Math.min(card + 2, (el.clientWidth - card) / (n - 1))) : card;
             el.style.setProperty('--step', `${step.toFixed(1)}px`);
         };
         fit();
@@ -503,7 +510,7 @@ function Hand({ seat, p, onFocus, onLeave, sl, animateChanges, fan = false }: { 
     );
 }
 
-function Side({ seat, props, sl, spots }: { seat: Seat; props: BoardProps; sl: SeatLens | null; spots: string[] | null }) {
+function Side({ seat, position, props, sl, spots }: { seat: Seat; position: 'top' | 'bottom'; props: BoardProps; sl: SeatLens | null; spots: string[] | null }) {
     const { state, prev, ids, prevIds, bots, actor, step, onFocus, onLeave, animateChanges = true } = props;
     const p = state.players[seat];
     const pp = prev?.players[seat] ?? null;
@@ -514,10 +521,10 @@ function Side({ seat, props, sl, spots }: { seat: Seat; props: BoardProps; sl: S
     const probeRef = useRef<HTMLSpanElement>(null);
     const { stack, weights } = sideLayout(useSideBox(rowRef, hqRef, probeRef),
         Math.max(p.ground.length, props.reserveArenaSlots?.[seat].ground ?? 0),
-        Math.max(p.space.length, props.reserveArenaSlots?.[seat].space ?? 0));
+        Math.max(p.space.length, props.reserveArenaSlots?.[seat].space ?? 0), props.cardSize?.unit);
     const cols = (weights ? { '--gw': `${weights[0]}fr`, '--sw': `${weights[1]}fr` } : {}) as CSSProperties;
     const row = (
-        <div ref={rowRef} className={`grid gap-2 grid-cols-[minmax(0,var(--gw,1fr))_minmax(0,var(--sw,1fr))] items-stretch ${stack ? '' : '@2xl:grid-cols-[minmax(0,var(--gw,1fr))_auto_minmax(0,var(--sw,1fr))]'}`} style={cols}>
+        <div ref={rowRef} className={`board-row grid gap-2 grid-cols-[minmax(0,var(--gw,1fr))_minmax(0,var(--sw,1fr))] items-stretch ${stack ? '' : '@2xl:grid-cols-[minmax(0,var(--gw,1fr))_auto_minmax(0,var(--sw,1fr))]'}`} style={cols}>
             <Lane label="ground" seat={seat} arena="ground" units={p.ground} ids={ids[seat].ground} prevUnits={pp?.ground ?? null} prevIds={prevIds?.[seat].ground ?? null} leader={p.leader} hiLeader={hiLeader} step={step} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} reservedSlots={props.reserveArenaSlots?.[seat].ground} />
             <div className={`relative px-2 py-1 flex flex-col items-center justify-center col-span-2 order-first ${stack ? '' : '@2xl:col-span-1 @2xl:order-none'}`}>
                 <Hq seat={seat} p={p} prev={pp} bot={bots[seat]} step={step} onFocus={onFocus} onLeave={onLeave} onHiLeader={setHiLeader} hqRef={hqRef} sl={sl} spots={spots} reserveProtection={props.reserveBaseProtection?.[seat]} />
@@ -533,10 +540,12 @@ function Side({ seat, props, sl, spots }: { seat: Seat; props: BoardProps; sl: S
         </div>
     );
     return (
-        <section className={`seat-${seat} half flex flex-col gap-1.5${actor === seat ? ' to-act' : ''}`} data-effect-seat={seat} aria-label={`${bots[seat]} (${seat})`}>
+        <section className={`seat-${seat} half half-${position} flex flex-col gap-1.5${actor === seat ? ' to-act' : ''}`} data-effect-seat={seat} data-board-position={position} aria-label={`${bots[seat]} (${seat})`}>
             {/* shown only when the container has room for ground | base | space: tells the layout which one CSS picked */}
             <span ref={probeRef} className="absolute size-0 hidden @2xl:block" aria-hidden="true" />
-            {seat === 'p2' ? <><Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} fan={props.fanHand === seat} />{row}</> : <>{row}<Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} fan={props.fanHand === seat} /></>}
+            {position === 'top' && <Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} fan={props.fanHand === seat} />}
+            <div className="side-field">{row}</div>
+            {position === 'bottom' && <Hand seat={seat} p={p} onFocus={onFocus} onLeave={onLeave} sl={sl} animateChanges={animateChanges} fan={props.fanHand === seat} />}
             <DiscardPermissions state={state} seat={seat} reserved={props.reserveDiscardPermissions?.[seat]} onFocus={onFocus} onLeave={onLeave} />
         </section>
     );
@@ -721,10 +730,13 @@ function BoardImpl(props: BoardProps) {
     })();
     // read straight from the snapshot by the Atlas kit's own rules
     const spots: SeatSpots | null = useMemo(() => (props.spots === false ? null : spotsOf(state)), [state, props.spots]);
+    const [top, bottom] = boardSeats(props.bottomSeat);
+    const size = props.cardSize;
+    const style = size ? { '--board-unit-width': `${size.unit}px`, '--board-hand-width': `${size.hand}px`, '--board-hand-slot': `${size.hand + 4}px` } as CSSProperties : undefined;
     return (
-        <div className="flex flex-col gap-2">
-            <Side seat="p2" props={props} sl={sls?.p2 ?? null} spots={spots?.p2 ?? null} />
-            {props.center ?? (view ? <ScoreLine view={view} bots={bots} state={state} values={values} /> : (
+        <div className={`board-surface flex flex-col gap-2${props.tableLayout ? ' table-board' : ''}`} style={style} data-bottom-seat={bottom}>
+            <Side seat={top} position="top" props={props} sl={sls?.[top] ?? null} spots={spots?.[top] ?? null} />
+            <div className="board-middle">{props.center ?? (view ? <ScoreLine view={view} bots={bots} state={state} values={values} /> : (
                 <div className="flex items-center gap-3 px-2">
                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-p2/40 to-transparent" />
                     <span className="eyebrow">round {state.round} · {state.phase}</span>
@@ -733,7 +745,8 @@ function BoardImpl(props: BoardProps) {
                 </div>
             ))}
             <PlayerEffectRail state={state} reserve={props.reservePlayerEffect} />
-            <Side seat="p1" props={props} sl={sls?.p1 ?? null} spots={spots?.p1 ?? null} />
+            </div>
+            <Side seat={bottom} position="bottom" props={props} sl={sls?.[bottom] ?? null} spots={spots?.[bottom] ?? null} />
         </div>
     );
 }

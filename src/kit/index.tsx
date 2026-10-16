@@ -103,6 +103,8 @@ export interface MountOptions {
      * on a page; 'window' anywhere on the page while the viewer is shown, for a page that is mostly this viewer
      */
     keyboard?: 'focus' | 'window';
+    /** Seat drawn at the bottom, fixed across turns; the viewer also offers an explicit selector. */
+    bottomSeat?: Seat;
     /** load the viewer's Google fonts into the host document (default true; fonts can't load from inside a shadow root) */
     fonts?: boolean;
 }
@@ -276,7 +278,7 @@ export function mount(el: HTMLElement, opts: MountOptions = {}): ViewerHandle {
         root.render(
             <SettingsProvider store={settings}><MotionConfig reducedMotion="user">
                 <GameViewer key={key} game={game} live={!game.end} startStep={opts.step ?? (opts.stepN != null ? indexOfN(opts.stepN) : 0)} evals={evals}
-                    lens={lens} registry={registry} score={scoreKey} onScore={onScore} estimate={opts.estimate} spots={opts.spots !== false} layout={opts.layout ?? 'full'} onStep={onStep} keyboard={opts.keyboard ?? 'focus'}
+                    lens={lens} registry={registry} score={scoreKey} onScore={onScore} estimate={opts.estimate} spots={opts.spots !== false} layout={opts.layout ?? 'full'} onStep={onStep} keyboard={opts.keyboard ?? 'focus'} bottomSeat={opts.bottomSeat}
                     control={(c) => {
                         ctl = c;
                         if (pending != null) {
@@ -472,7 +474,7 @@ function KitBoard({ lens, ...props }: Omit<ComponentProps<typeof Board>, 'score'
  * of a file's steps) is drawn as "lens step (evaluator unknown)": six rows, no rules and no chance, since a step alone
  * doesn't say which score it is (pass `{file, n}` to keep its label). `spots: false` hides the Atlas spot chips by each base.
  */
-export function mountBoard(el: HTMLElement, state: Snapshot, opts: { bots?: Record<Seat, string>; fonts?: boolean; lens?: boolean | LensStep | FileStep; cardText?: CardTextFile | string; spots?: boolean } = {}) {
+export function mountBoard(el: HTMLElement, state: Snapshot, opts: { bots?: Record<Seat, string>; fonts?: boolean; lens?: boolean | LensStep | FileStep; cardText?: CardTextFile | string; spots?: boolean; bottomSeat?: Seat } = {}) {
     if (opts.fonts !== false) {
         ensureFonts();
     }
@@ -491,7 +493,7 @@ export function mountBoard(el: HTMLElement, state: Snapshot, opts: { bots?: Reco
         const ids = trackUnits({ header: { t: 'header', v: 1, seed: 0, engine: null, players: [] }, steps, end: null });
         root.render(
             <MotionConfig reducedMotion="user">
-                <KitBoard lens={lensOpt} spots={opts.spots !== false} state={cur} prev={prev} ids={ids[ids.length - 1]} prevIds={prev ? ids[0] : null} bots={bots} actor={null} step={n++} onFocus={() => undefined} />
+                <KitBoard bottomSeat={opts.bottomSeat} lens={lensOpt} spots={opts.spots !== false} state={cur} prev={prev} ids={ids[ids.length - 1]} prevIds={prev ? ids[0] : null} bots={bots} actor={null} step={n++} onFocus={() => undefined} />
             </MotionConfig>
         );
     };

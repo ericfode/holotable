@@ -125,7 +125,10 @@ Who embeds it:
   loading bar under it (how much is here, or the table's own `note` while that is not known, such as the arena's games
   machine waking up). Every legal move is a glowing card, a button in the prompt bar, or an entry in **All moves**;
   damage splits get a stepper per target, long menus (name a card) a search box. The prompt bar sits between the two
-  sides of the board, and stays at the top or bottom edge of the window while you look at one side. Everywhere: a move
+  sides in a fixed-height, scrollable track, so changing prompts never move the cards. Your confirmed seat always sits
+  at the bottom, with your hand anchored to the table's bottom edge. Crowded fields and hands scroll independently;
+  card scale follows available screen space. Replays default to p1 at the bottom and offer a **Bottom seat** selector;
+  kit hosts can pass `bottomSeat: 'p2'` to `mount` or `mountBoard` for an explicit perspective. Everywhere: a move
   that would change nothing (the table's `noEffect` flag, or the engine's "(No effect)" choice) is grey and dashed and
   says "No effect"; the card whose ability asks the question wears a gold ring, with the question in a bubble and
   dashed lines to the cards that answer it; the bot's moves since yours are drawn on the board (an arrow from its card
@@ -175,8 +178,8 @@ Who embeds it:
   - Replays: ← → or A D step (shift for 10), ↑ ↓, W S or `[` `]` jump a round, Q E jump to the previous or next key
     moment (the marks on the timeline), space play, 0-9 jump to 0-90%, Home/End, - = slower and faster, H whose hand to
     show, C card art, L back to live. ⌘K / Ctrl+K is the command palette.
-  - Play mode: the keyboard's rows are the board's rows. Q-P pick the top side's base, leader, then units (p2's, the
-    opponent's at today's tables); A-; the bottom side's (p1's, yours); Z-. the cards in your hand; 1-0 the other choices in the prompt bar (shift+1-0 for 11 and up; a choose-a-number menu
+  - Play mode: the keyboard's rows are the board's rows. Q-P pick the top side's base, leader, then units (the
+    opponent's); A-; the bottom side's (yours, for either seat); Z-. the cards in your hand; 1-0 the other choices in the prompt bar (shift+1-0 for 11 and up; a choose-a-number menu
     puts each number on its own key); space or Enter the main button (Pass, Done, Confirm, Keep). A card's key comes from
     its place on the board, so the opponent's base is always Q and your leader always S. Every glowing card and button
     shows its key cap (the Keys list can hide them). Shift + a card's letter enlarges a board or hand card without
