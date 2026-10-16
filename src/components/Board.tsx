@@ -131,12 +131,12 @@ function RowChip({ sl, id, v, what, className = '' }: { sl: SeatLens; id: string
     );
 }
 
-// Lane geometry, matching .lane and .card in styles.css: an 84px card, 8px gaps, 8px padding and a 1px border each side.
-const CARD_W = 84;
+// Lane geometry, matching .lane and .card in styles.css: a 100px card, 8px gaps, 8px padding and a 1px border each side.
+const CARD_W = 100;
 const GAP = 8;
 const LANE_X = 2 * (8 + 1);
-// a row of cards in a lane (card height 84 × 7/5, plus the gap)
-const ROW_H = 126;
+// a row of cards in a lane (card height 100 × 7/5, plus the gap)
+const ROW_H = 148;
 const laneWidth = (cols: number) => LANE_X + cols * CARD_W + (cols - 1) * GAP;
 const colsIn = (w: number) => Math.max(1, Math.floor((w - LANE_X + GAP) / (CARD_W + GAP)));
 const rowsOf = (n: number, cols: number) => Math.ceil(n / cols);
@@ -276,7 +276,7 @@ function LeaderSlot({ p, onFocus, onLeave, onHi, sl }: { p: PlayerSnap; onFocus:
     const note = gone ? 'Leader · deployed, then defeated (its deploy is used)' : !l.dep ? 'Leader' : onBoard ? 'Leader · deployed (on the board, marked LEADER)' : 'Leader · flipped to its other side';
     return (
         <div className={`leader-slot${gone ? ' gone' : ''}`} onMouseEnter={() => onHi(true)} onMouseLeave={() => onHi(false)} onFocus={() => onHi(true)} onBlur={() => onHi(false)}>
-            <Card card={l} shape="wide" kind="leader" width={92} effectIdentity={!onBoard} back={!!l.dep} exhausted={!!l.x} onFocus={onFocus} onLeave={onLeave} note={note}
+            <Card card={l} shape="wide" kind="leader" width={110} effectIdentity={!onBoard} back={!!l.dep} exhausted={!!l.x} onFocus={onFocus} onLeave={onLeave} note={note}
                 value={leaderValue(sl, unitTagged)} />
             {onBoard && <span className="leader-out" title="Deployed: hover to find it on the board">on board</span>}
             {gone && <span className="leader-out gone" title="Deployed with its epic action, then defeated: the deploy is used">defeated</span>}
@@ -447,7 +447,7 @@ function DiscardPermissions({ state, seat, reserved, onFocus, onLeave }: { state
         {ids.map((id, i) => {
             const permission = permissions.find(p => p.id === id), card = permission && state.players[seat].discard.find(c => c.id === permission.cardId);
             return <div key={id} className={`discard-permission${card ? '' : ' empty'}`} aria-hidden={!card || undefined} data-effect-permission={card ? id : undefined} data-effect-permission-card={card?.id} data-effect-permission-source={permission?.sourceId}>
-                <div className="discard-permission-face" data-effect-zone={`discard-permission:${i}`}>{card ? <Card card={card} size="sm" width={28} note="In discard · may play for two less this phase" onFocus={onFocus} onLeave={onLeave} /> : null}</div>
+                <div className="discard-permission-face" data-effect-zone={`discard-permission:${i}`}>{card ? <Card card={card} size="sm" width={34} note="In discard · may play for two less this phase" onFocus={onFocus} onLeave={onLeave} /> : null}</div>
                 <div className="discard-permission-text" data-effect-zone={`discard-permission-label:${i}`}><strong>{card?.n}</strong><span>{card ? 'Play from discard · −2 this phase' : ''}</span></div>
             </div>;
         })}

@@ -12,10 +12,10 @@
 .effects-stage-label { display: flex; align-items: center; gap: 8px; padding: 13px 20px; background: #0e1725; border-bottom: 1px solid #1e2a3d; color: #8d9bb5; font-size: 10px; letter-spacing: .075em; }
 .effects-live-dot { height: 5px; width: 5px; background: var(--effect-accent); border-radius: 50%; box-shadow: 0 0 9px color-mix(in srgb, var(--effect-accent) 65%, transparent); margin-right: 2px; }
 .effects-feature { display: flex; align-items: center; gap: 17px; padding: 19px 20px 18px; background: linear-gradient(110deg, color-mix(in srgb, var(--effect-accent) 5%, #0b121f), #0b121f 70%); }
-.effect-card-art { position: relative; display: grid; place-items: center; width: 35px; height: 48px; flex-shrink: 0; border: 1px solid #374059; overflow: hidden; border-radius: 4px; background: linear-gradient(145deg, color-mix(in srgb, var(--effect-accent) 22%, #142033), #0b111c); box-shadow: 0 2px 6px #0005; }
+.effect-card-art { position: relative; display: grid; place-items: center; width: 42px; height: 58px; flex-shrink: 0; border: 1px solid #374059; overflow: hidden; border-radius: 4px; background: linear-gradient(145deg, color-mix(in srgb, var(--effect-accent) 22%, #142033), #0b111c); box-shadow: 0 2px 6px #0005; }
 .effect-card-art img { width: 100%; height: 100%; object-fit: cover; }
 .effect-card-art > span { color: var(--effect-accent); font: 600 12px var(--font-display); }
-.effect-card-art.hero { width: 59px; height: 82px; border-radius: 5px; transform: rotate(-4deg); box-shadow: 0 4px 15px #0008; }
+.effect-card-art.hero { width: 71px; height: 98px; border-radius: 5px; transform: rotate(-4deg); box-shadow: 0 4px 15px #0008; }
 .effect-card-art.hero > span { font-size: 21px; }
 .effects-feature-copy { flex: 1; min-width: 0; }
 .effects-feature-meta { display: flex; align-items: center; gap: 10px; font-size: 9px; text-transform: uppercase; letter-spacing: .13em; color: #8191af; }
@@ -49,7 +49,7 @@
 .effects-filters button[aria-pressed="true"] { background: #233149; border-color: #3b4a65; color: #f0f4ff; }
 .effects-filters button:hover { color: #e1ebff; }
 .effects-card-list { display: flex; flex-direction: column; gap: 4px; max-height: 716px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: #31415c transparent; }
-.effects-card-pick { display: flex; width: 100%; min-height: 63px; align-items: center; gap: 11px; text-align: left; padding: 6px 9px; border: 1px solid #1a263c; border-radius: 8px; background: #0b1421; color: #c1cee4; cursor: pointer; transition: background .15s, border-color .15s; }
+.effects-card-pick { display: flex; width: 100%; min-height: 72px; align-items: center; gap: 11px; text-align: left; padding: 6px 9px; border: 1px solid #1a263c; border-radius: 8px; background: #0b1421; color: #c1cee4; cursor: pointer; transition: background .15s, border-color .15s; }
 .effects-card-pick:hover { border-color: #415371; background: #142135; }
 .effects-card-pick.active { background: linear-gradient(110deg, color-mix(in srgb, var(--effect-accent) 11%, #101a2a), #111c2d); border-color: color-mix(in srgb, var(--effect-accent) 65%, #263c57); box-shadow: inset 2px 0 var(--effect-accent); }
 .effects-card-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
@@ -64,16 +64,16 @@
 @media (min-width: 1450px) { .effects-workspace { grid-template-columns: minmax(0, 1fr) 325px; } }
 @media (max-width: 1050px) { .effects-page { padding: 23px 18px; } .effects-workspace { grid-template-columns: minmax(0, 1fr) 260px; gap: 15px; } .effects-feature { padding: 17px 15px; gap: 13px; } .effects-position { display: none; } .effects-card-pick { gap: 9px; } }
 @media (max-width: 850px) { .effects-workspace { grid-template-columns: minmax(0, 1fr); } .effects-count { display: none; } .effects-library { margin-top: 10px; } .effects-card-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: none; padding: 0; } .effects-card-number { display: none; } .effects-library-heading { margin-bottom: 10px; } .effects-search { max-width: 380px; } }
-@media (max-width: 570px) { .effects-page { padding: 20px 10px; } .effects-heading { margin-bottom: 20px; padding: 0 4px; } .effects-heading h1 { font-size: 26px; max-width: 14ch; } .effects-heading p { font-size: 12px; max-width: 38ch; line-height: 1.5; } .effects-feature { padding: 15px 12px; gap: 12px; } .effect-card-art.hero { width: 48px; height: 67px; } .effects-feature-copy h2 { font-size: 22px; } .effects-feature-copy p { font-size: 11px; } .effects-card-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .effects-card-pick { padding: 6px; gap: 7px; } .effects-card-copy strong { font-size: 11px; } .effects-board { padding: 0 5px 8px; } .effects-transport { padding: 12px; gap: 10px; } .effects-transport-secondary { margin-left: auto; } .effects-transport-secondary .btn > span { display: none; } .effects-transport .btn { padding-left: 9px; padding-right: 9px; } .effects-stage-label { padding: 12px; font-size: 9px; } }
+@media (max-width: 570px) { .effects-page { padding: 20px 10px; } .effects-heading { margin-bottom: 20px; padding: 0 4px; } .effects-heading h1 { font-size: 26px; max-width: 14ch; } .effects-heading p { font-size: 12px; max-width: 38ch; line-height: 1.5; } .effects-feature { padding: 15px 12px; gap: 12px; } .effect-card-art.hero { width: 58px; height: 80px; } .effects-feature-copy h2 { font-size: 22px; } .effects-feature-copy p { font-size: 11px; } .effects-card-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .effects-card-pick { padding: 6px; gap: 7px; } .effects-card-copy strong { font-size: 11px; } .effects-board { padding: 0 5px 8px; } .effects-transport { padding: 12px; gap: 10px; } .effects-transport-secondary { margin-left: auto; } .effects-transport-secondary .btn > span { display: none; } .effects-transport .btn { padding-left: 9px; padding-right: 9px; } .effects-stage-label { padding: 12px; font-size: 9px; } }
 @media (max-width: 570px) {
     .effects-theatre { display: flex; flex-direction: column; }
     .effects-feature { order: 1; }
     .effects-transport { order: 2; border-bottom: 1px solid #263249; margin-bottom: 8px; }
     .effects-board { order: 3; }
     .effects-stage-note { order: 4; }
-    .effects-board .lane { padding: 6px; gap: 5px; min-height: 112px; }
-    .effects-board .card:not(.sm):not(.wide) { --w: 58px; }
-    .effects-board .card.wide:not(.sm) { --w: 100px; }
+    .effects-board .lane { padding: 6px; gap: 5px; min-height: 134px; }
+    .effects-board .card:not(.sm):not(.wide) { --w: 70px; }
+    .effects-board .card.wide:not(.sm) { --w: 120px; }
     .effects-board .lane .stat { min-width: 17px; height: 18px; padding-inline: 3px; font-size: 11px; bottom: 3px; }
     .effects-board .lane .stat.pw { left: 3px; }
     .effects-board .lane .stat.hp { right: 3px; }

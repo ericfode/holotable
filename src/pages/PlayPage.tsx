@@ -91,8 +91,8 @@ function StartScreen({ onStart }: { onStart: (g: { id: string; seat: Seat; bot: 
                     {opts.decks.map((x) => <option key={x.name} value={x.name}>{x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
                 </select>
                 {d && <div className="flex gap-2 items-end" style={{ '--seat': `var(--color-${seat})` } as CSSProperties}>
-                    <Card card={{ id: `${id}-leader`, n: cardTextBySet(d.leader)?.t ?? d.leader, s: d.leader }} shape="wide" kind="leader" width={120} />
-                    <Card card={{ id: `${id}-base`, n: cardTextBySet(d.base)?.t ?? d.base, s: d.base }} shape="wide" kind="base" width={92} />
+                    <Card card={{ id: `${id}-leader`, n: cardTextBySet(d.leader)?.t ?? d.leader, s: d.leader }} shape="wide" kind="leader" width={144} />
+                    <Card card={{ id: `${id}-base`, n: cardTextBySet(d.base)?.t ?? d.base, s: d.base }} shape="wide" kind="base" width={110} />
                 </div>}
             </div>
         );

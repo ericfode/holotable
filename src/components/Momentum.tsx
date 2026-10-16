@@ -631,7 +631,7 @@ function Markers({ markers, last, step, bots, onSeek, width, inset, stepN, round
                             {hover === k && (
                                 <motion.div className={`absolute bottom-full mb-2 ${align} panel !bg-panel p-2 pointer-events-none flex flex-col items-center gap-1`} style={{ zIndex: 40 }}
                                     initial={{ opacity: 0, y: 6, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}>
-                                    <ActionIcon cls={m.cls} seat={m.seat} card={m.card} outcome={m.outcome} size={110} caption={describe(m, bots[m.seat])} />
+                                    <ActionIcon cls={m.cls} seat={m.seat} card={m.card} outcome={m.outcome} size={132} caption={describe(m, bots[m.seat])} />
                                     <span className="text-[11px] num text-dim whitespace-nowrap">
                                         step {stepN(m.index)} · R{rounds[m.index]} · {classInfo(m.cls).label.toLowerCase()} · <b style={{ color: `var(--color-${gain})` }}>{words.amount}</b> for {bots[m.seat]}
                                     </span>
