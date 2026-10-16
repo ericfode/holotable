@@ -26,12 +26,15 @@ function setup({ native = true, shadow = false, request, exit } = {}) {
     let observer;
     doc.defaultView = Object.assign(new EventTarget(), {
         requestAnimationFrame: (f) => f(),
+        getComputedStyle: el => ({ display: el.display ?? 'block', visibility: 'visible' }),
         MutationObserver: class { constructor(f) { observer = this; this.fire = f; } observe() {} disconnect() { this.disconnected = true; } }
     });
-    const tree = shadow ? { fullscreenElement: null } : doc;
+    const host = { hidden: false, parentElement: null, getRootNode: () => doc, hasAttribute: key => key === 'hidden' && host.hidden };
+    const tree = shadow ? { fullscreenElement: null, host } : doc;
     let focus = 0, requests = 0, exits = 0;
     const el = {
         ownerDocument: doc, isConnected: true, visible: true, parentElement: null,
+        hasAttribute: key => key === 'hidden' && !!el.hidden,
         getRootNode: () => tree, getClientRects: () => el.visible ? [1] : [],
         querySelector: () => ({ focus: () => focus++ })
     };
@@ -52,7 +55,7 @@ function setup({ native = true, shadow = false, request, exit } = {}) {
     };
     let state;
     const session = fullscreenSession(el, s => { state = s; });
-    return { doc, el, tree, session, observer, state: () => state, counts: () => ({ focus, requests, exits }) };
+    return { doc, el, host, tree, session, observer, state: () => state, counts: () => ({ focus, requests, exits }) };
 }
 
 test('native entry stays in the user gesture, repeated toggles and browser exits follow the actual state', async () => {
@@ -159,4 +162,21 @@ test('failed exit keeps an accurate active state and explains the browser exit o
     assert.equal(h.state().mode, 'inline');
     assert.equal(h.state().notice, '');
     h.session.destroy();
+});
+
+test('native fullscreen leaves a hidden host even when the top-layer target still has a rect', async () => {
+    for (const hide of ['hidden', 'display']) {
+        const h = setup({ shadow: true });
+        await h.session.toggle();
+        assert.equal(h.state().mode, 'fullscreen');
+        if (hide === 'hidden') h.host.hidden = true;
+        else h.host.display = 'none';
+        assert.equal(h.el.getClientRects().length, 1);
+        h.observer.fire();
+        await Promise.resolve();
+        assert.equal(h.doc.fullscreenElement, null);
+        assert.equal(h.state().mode, 'inline');
+        assert.equal(h.counts().exits, 1);
+        h.session.destroy();
+    }
 });
