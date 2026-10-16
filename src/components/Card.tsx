@@ -1,5 +1,5 @@
 import { useContext, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import { Check, Crosshair, Play, Plus, Sparkles, Swords, Undo2, X, type LucideIcon } from 'lucide-react';
+import { Check, Crosshair, Play, Plus, Skull, Sparkles, Swords, Undo2, X, type LucideIcon } from 'lucide-react';
 import { cardImageUrl, tileLook } from '../lib/cards';
 import { isToken } from '../lib/cardText';
 import { useSettings } from '../lib/settings';
@@ -7,6 +7,7 @@ import type { CardRef, Seat, UnitRef, UpgradeRef } from '../data/types';
 import { rowColor } from '../data/terms';
 import { digitsOf, unitText } from '../data/format';
 import { PickContext, type Pick } from '../play/pick';
+import { changeShort, changeText } from '../play/protocol';
 import { byTouch, keyboardFocus } from '../lib/touch';
 import { Kbd } from './Keys';
 
@@ -208,6 +209,10 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     // a move that would change nothing glows grey; the card whose ability asks the question is marked
     const dud = pickState === 'pick' && !!picker?.dud?.(card.id!);
     const asking = !!card.id && picker?.asking === card.id;
+    // a result preview: what the answer shown now does to this card (fate), or else what picking this card would do to it
+    const fate = card.id ? picker?.outcome?.get(card.id) ?? null : null;
+    const own = !picker?.outcome && pickState === 'pick' && card.id ? picker?.preview?.(card.id)?.cards.find((c) => c.id === card.id) ?? null : null;
+    const upgradeName = (id: string) => unit?.u?.find((u) => u.id === id)?.n ?? null;
     const [failed, setFailed] = useState<string | null>(null);
     // an image whose orientation doesn't match the box (art data can disagree with the card type) is fitted whole, not cropped
     const [mismatch, setMismatch] = useState<string | null>(null);
@@ -280,7 +285,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     const footed = lensed || stats || named || !!shownStatuses?.length;
     // over the name bar and stats when the card has them, so neither hides the other
     const dudMark = <span className="dud-mark" title="Playing or using this now would change nothing">No effect</span>;
-    const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : '', pickState === 'pick' ? 'pickable' : pickState === 'picked' ? 'picked' : '', dud ? 'dud' : '', asking ? 'asking' : ''].filter(Boolean).join(' ');
+    const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : '', pickState === 'pick' ? 'pickable' : pickState === 'picked' ? 'picked' : '', dud ? 'dud' : '', asking ? 'asking' : '', fate ? 'fated' : '', fate?.gone ? 'fated-gone' : ''].filter(Boolean).join(' ');
     const pressProps = onFocus || pickState
         ? {
             onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
@@ -319,7 +324,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     return (
         <div className={cls} style={style} title={card.n} {...focus} {...pressProps} {...pickProps}
             data-effect-card={effectIdentity ? card.n : undefined} data-effect-code={effectIdentity ? card.s ?? undefined : undefined} data-effect-id={effectIdentity ? card.id : undefined} data-effect-base={kind === 'base' ? '' : undefined} data-effect-zone={kind === 'leader' ? 'leader' : undefined}
-            aria-label={(leader ? 'Leader ' : '') + card.n + (unit ? `, ${unit.p} power, ${hp} HP left${unit.d > 0 ? ` (${unit.d} damage)` : ''}` : '') + (unit?.sn ? ', Sentinel' : '') + (unit?.cap?.length ? `, holds captured ${unit.cap.map((c) => c.n).join(', ')}` : '') + (exhausted ? ', exhausted' : '') + (value?.v != null ? `, worth ${fmtCardValue(value.v, value.digits)}` : '') + (dud ? ', no effect now' : '') + (asking ? ', asking' : '')}>
+            aria-label={(leader ? 'Leader ' : '') + card.n + (unit ? `, ${unit.p} power, ${hp} HP left${unit.d > 0 ? ` (${unit.d} damage)` : ''}` : '') + (unit?.sn ? ', Sentinel' : '') + (unit?.cap?.length ? `, holds captured ${unit.cap.map((c) => c.n).join(', ')}` : '') + (exhausted ? ', exhausted' : '') + (value?.v != null ? `, worth ${fmtCardValue(value.v, value.digits)}` : '') + (dud ? ', no effect now' : '') + (asking ? ', asking' : '') + (fate ? `, would be: ${changeText(fate, upgradeName).toLowerCase()}` : own ? `, choosing it: ${changeText(own, upgradeName).toLowerCase()}` : '')}>
             {showImg ? (
                 <>
                     {mismatch === url && <img src={url} alt="" draggable={false} className="backdrop" />}
@@ -339,6 +344,8 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
             )}
             {pickKey && <Kbd k={pickKey} className="pick-key" />}
             {dud && !footed && dudMark}
+            {fate && <span className={`fate-mark${fate.gone ? ' gone' : fate.d && fate.d < 0 ? ' heal' : ''}`}>{fate.gone && <Skull size={13} aria-hidden="true" />}{changeText(fate, upgradeName)}</span>}
+            {own && changeShort(own, upgradeName) && <span className={`res-mark${own.gone ? ' gone' : own.d && own.d < 0 ? ' heal' : ''}`} title={`If you choose this: ${changeText(own, upgradeName).toLowerCase()}`}>{own.gone && <Skull size={11} aria-hidden="true" />}{changeShort(own, upgradeName)}</span>}
             {(move || waiting) && <MoveChip id={card.id!} name={card.n} move={move} waiting={waiting} dud={dud} picker={picker!} />}
             {(leader || unit?.sn || token || ups || cap.length > 0) && (
                 <div className="top">

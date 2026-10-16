@@ -15,7 +15,7 @@ function load(rel) {
     new Function('require', 'module', 'exports', code)(() => ({}), mod, mod.exports);
     return mod.exports;
 }
-const { moveVerb, moveText, moveIcon, actionCardId, noEffectText, isDud } = load('src/play/protocol.ts');
+const { moveVerb, moveText, moveIcon, actionCardId, noEffectText, isDud, changeText, changeShort, previewText, outcomeOf } = load('src/play/protocol.ts');
 
 const card = (i, n, zone, id = `c${i}`) => ({ i, kind: 'card', label: n.toLowerCase(), card: { id, n, s: null, zone, ctl: 'p1' } });
 const decide = (prompt, actions) => ({
@@ -83,4 +83,30 @@ test('a move that would change nothing: flagged by the table, or named so by the
     assert.equal(isDud({ i: 0, kind: 'button', label: '(No effect) Use ability' }), true);
     assert.equal(isDud({ ...card(2, 'Vanquish', 'hand'), noEffect: true }), true);
     assert.equal(isDud(card(2, 'Vanquish', 'hand')), false);
+});
+
+test('a result preview reads as a few words on each card it changes, and as one line for the bar', () => {
+    const names = { c1: 'Wing Leader', c2: 'K-2SO', c9: 'Shield', b2: 'Echo Base' };
+    const nameOf = (id) => names[id] ?? null;
+    assert.equal(changeText({ id: 'c1', gone: 'defeated' }), 'Defeated');
+    assert.equal(changeText({ id: 'c1', gone: 'returned' }), 'Back to hand');
+    assert.equal(changeText({ id: 'c2', d: 2 }), '2 damage');
+    assert.equal(changeText({ id: 'c2', d: -3 }), 'Heals 3');
+    assert.equal(changeText({ id: 'c2', lost: ['c9'] }, nameOf), 'Loses Shield');
+    assert.equal(changeText({ id: 'c2', d: 1, lost: ['c9', 'c8'] }, () => null), '1 damage · Loses 2 upgrades');
+    assert.equal(changeShort({ id: 'c1', gone: 'defeated' }), 'Defeated');
+    assert.equal(changeShort({ id: 'c1', gone: 'left' }), 'Leaves');
+    assert.equal(changeShort({ id: 'c2', d: 3 }), '3 dmg');
+    assert.equal(changeShort({ id: 'c2', d: -2 }), '+2 HP');
+    assert.equal(changeShort({ id: 'c2', lost: ['c9'] }, nameOf), '−Shield');
+    const p = { cards: [{ id: 'c1', gone: 'defeated' }, { id: 'c2', d: 2 }, { id: 'c7', d: 1 }] };
+    assert.equal(previewText(p, nameOf, 'p1'), 'Wing Leader: defeated · K-2SO: 2 damage', 'a card the board cannot name is left out');
+    assert.equal(previewText({ cards: [{ id: 'b2', d: 5 }], winner: 'p1' }, nameOf, 'p1'), 'Echo Base: 5 damage · you win');
+    assert.equal(previewText({ cards: [], winner: 'p2' }, nameOf, 'p1'), 'you lose');
+    assert.equal(previewText({ cards: [{ id: 'c2', d: 1 }], more: true }, nameOf, 'p1'), 'K-2SO: 1 damage · then more choices');
+    assert.equal(previewText({ cards: [], more: true }, nameOf, 'p1'), 'more choices follow');
+    assert.equal(previewText({ cards: [] }, nameOf, 'p1'), 'Nothing on the board changes');
+    assert.deepEqual([...outcomeOf(p).keys()], ['c1', 'c2', 'c7']);
+    assert.equal(outcomeOf({ cards: [] }), null);
+    assert.equal(outcomeOf(undefined), null);
 });

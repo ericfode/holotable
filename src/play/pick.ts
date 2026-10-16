@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { MoveIcon } from './protocol';
+import type { MoveIcon, MovePreview, PreviewChange } from './protocol';
 
 /**
  * Which cards on the board a person may click now (play mode). A card reads it by its id: 'pick' when clicking it is
@@ -31,6 +31,13 @@ export interface Pick {
     dud?: (id: string) => boolean;
     /** the card whose ability asks the question now (the prompt's title names it): it is marked on the board */
     asking?: string | null;
+    /** what picking the card would do (Action.preview): its own change is marked on it, so the choices can be compared */
+    preview?: (id: string) => MovePreview | null;
+    /**
+     * The result shown on the whole board now, by card id: the answer waiting to go (a touch move's take-back) or the
+     * one under the pointer or the keys. Each changed card shows its change; a card that leaves play fades.
+     */
+    outcome?: Map<string, PreviewChange> | null;
 }
 
 export const PickContext = createContext<Pick | null>(null);

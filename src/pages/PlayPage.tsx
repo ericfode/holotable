@@ -17,7 +17,7 @@ import { BoardLines, type Trail } from '../play/BoardLines';
 import { TableContext, type DeckOption, type Prep, type TableOptions } from '../play/client';
 import { firstMode, startModes, type StartMode } from '../play/modes';
 import { Versus } from '../play/Versus';
-import { actionCardId, endText, isDud, moveIcon, moveText, moveVerb, noEffectText, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
+import { actionCardId, endText, isDud, moveIcon, moveText, moveVerb, noEffectText, outcomeOf, previewText, promptText, splitProblem, toSnapshot, type Action, type DecideMsg, type Distribute, type EndMsg, type HelloMsg, type MoveMsg, type TableMsg } from '../play/protocol';
 import { DeckImport, ModeTabs, PairingPanel, PeopleStart, usePairing } from '../play/StartModes';
 
 /**
@@ -213,6 +213,10 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [sending, setSending] = useState(false);
     const [held, setHeld] = useState<Held | null>(null);
     const heldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // taking back a move that went (decide.undo): `undoable` once the game has offered it, `undoing` until it is back
+    const [undoable, setUndoable] = useState(false);
+    const [undoing, setUndoing] = useState(false);
+    const [note, setNote] = useState<string | null>(null);
     // the last decision whose only answer was given by itself: a stopped (or refused) one waits for the person
     const autoSeq = useRef(-1);
     const [auto, setAuto] = useAutoAnswer();
@@ -263,7 +267,24 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 setShown((s) => (s && JSON.stringify(s.cur) === JSON.stringify(snap) ? s : { prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 setDecide(m);
                 setSending(false);
+                setUndoing(false);
                 setProblem(null);
+                if (m.undo) {
+                    setUndoable(true);
+                }
+            } else if (m.t === 'rewind') {
+                // the move is back (the board as it was then, the moves after it gone), or could not be: the decision
+                // that follows says what to do next
+                setUndoing(false);
+                if (m.state) {
+                    const snap = toSnapshot(m.state, seat);
+                    setShown((s) => ({ prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
+                    setLog((l) => l.filter((e) => e.n <= (m.n ?? 0)));
+                    setTrail([]);
+                    setNote('Move taken back');
+                } else {
+                    setNote(`Could not take that back${m.error ? `: ${m.error}` : ''}`);
+                }
             } else if (m.t === 'end') {
                 setDecide(null);
                 setEnd(m);
@@ -295,6 +316,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const send = useCallback(async (seq: number, a: Action, split?: { id: string; amount: number }[]) => {
         setSending(true);
         setProblem(null);
+        setNote(null);
         // the person's own move ends the other side's trail
         setTrail([]);
         try {
@@ -335,6 +357,22 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
         }
         setHeld(null);
     }, []);
+    /** Take back the person's last move that went, and the other side's moves after it (decide.undo, or queued while the bot thinks). */
+    const takeBack = useCallback(async () => {
+        if (end || undoing || held || sending || !(decide ? decide.undo : undoable)) {
+            return;
+        }
+        setUndoing(true);
+        setProblem(null);
+        setNote(null);
+        setFocus((f) => (f?.touch ? null : f));
+        try {
+            await table.act(id, { t: 'undo', seq: decide?.seq ?? -1 });
+        } catch (e) {
+            setUndoing(false);
+            setProblem(String((e as Error).message ?? e));
+        }
+    }, [end, undoing, held, sending, decide, undoable, table, id]);
     const sendNow = useCallback(() => {
         if (held) {
             undo();
@@ -397,6 +435,10 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     useEffect(() => {
         armed.current = performance.now() + ARM_MS;
     }, [decide?.seq]);
+    // a result preview (Action.preview): the answer waiting to go, else the card under the pointer or the keys
+    const hovered = focus && !focus.touch && focus.card.id ? picks.get(focus.card.id) : undefined;
+    const outcome = useMemo(() => outcomeOf(held ? held.a.preview : hovered?.preview), [held, hovered]);
+    const nameOf = useMemo(() => boardNames(cur), [cur]);
     const pick = useMemo((): Pick => ({
         state: (cid) => (picks.has(cid) ? (selected.has(cid) ? 'picked' : 'pick') : selected.has(cid) ? 'picked' : splitIds.has(cid) ? 'pick' : null),
         pick: (cid, hold = false) => {
@@ -422,21 +464,35 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
             const a = picks.get(cid);
             return !!a && isDud(a);
         },
-        asking
-    }), [picks, selected, splitIds, act, hints, keys, decide, asking]);
-    // while a touch move waits to go, nothing glows, and its card shows the countdown (a tap on it takes the move back)
-    const waiting = useMemo((): Pick | null => (held ? { state: () => null, pick: () => undefined, held: actionCardId(held.a) ?? null, undo } : null), [held, undo]);
+        asking,
+        preview: (cid) => picks.get(cid)?.preview ?? null,
+        outcome
+    }), [picks, selected, splitIds, act, hints, keys, decide, asking, outcome]);
+    // while a touch move waits to go, nothing glows, its card shows the countdown (a tap on it takes the move back), and
+    // the board shows what it will do
+    const waiting = useMemo((): Pick | null => (held ? { state: () => null, pick: () => undefined, held: actionCardId(held.a) ?? null, undo, outcome } : null), [held, undo, outcome]);
 
     // the page's keys while this table is on screen and nothing is being typed
-    const now = useRef({ keys, decide, sending, act, pick, end, help, held, undo, sendNow });
-    now.current = { keys, decide, sending, act, pick, end, help, held, undo, sendNow };
+    const now = useRef({ keys, decide, sending, act, pick, end, help, held, undo, sendNow, takeBack });
+    now.current = { keys, decide, sending, act, pick, end, help, held, undo, sendNow, takeBack };
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             const s = now.current;
             const root = rootRef.current;
             const target = (e.composedPath?.()[0] ?? e.target) as HTMLElement | null;
             // a hidden table (a host page showing a replay over it) takes no keys
-            if (!root || !root.getClientRects().length || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isTyping(target)) {
+            if (!root || !root.getClientRects().length || e.defaultPrevented || e.altKey || isTyping(target)) {
+                return;
+            }
+            // Ctrl+Z (⌘Z): take back the last move
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyZ') {
+                e.preventDefault();
+                if (!e.repeat && !s.help) {
+                    void s.takeBack();
+                }
+                return;
+            }
+            if (e.ctrlKey || e.metaKey) {
                 return;
             }
             if (e.key === '?') {
@@ -535,7 +591,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const youDeck = hello?.deck.metadata?.name;
     const botDeck = hello?.opponent.metadata?.name;
     const actor: Seat | null = end ? null : decide ? seat : seat === 'p1' ? 'p2' : 'p1';
-    const live = decide && !sending && !held;
+    const live = decide && !sending && !held && !undoing;
     const zoomKey = focus ? `${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}` : '';
 
     return (
@@ -582,13 +638,15 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 {/* a new bar for each decision, so a button focused by a click can't take the next decision's Space */}
                 {centerEl && cur && createPortal(
                     <PromptBar key={decide?.seq ?? 'wait'} decide={decide} sending={sending} held={held} onUndo={undo} onSendNow={sendNow} problem={problem} board={cur} bot={bot} drawn={drawn}
-                        pick={pick} onAct={act} ended={!!end} keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} trail={trail} onStopAuto={stopAuto} />,
+                        undoing={undoing} note={note} onTakeBack={(decide ? decide.undo : undoable) ? () => void takeBack() : null}
+                        pick={pick} onAct={act} ended={!!end} keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} trail={trail} onStopAuto={stopAuto}
+                        result={held?.a.preview ? previewText(held.a.preview, nameOf, seat) : hovered?.preview ? `${moveVerb(hovered, decide!)}: ${previewText(hovered.preview, nameOf, seat)}` : null} />,
                     centerEl
                 )}
                 {focus && (focus.touch
                     ? (
                         <FloatingZoom key={zoomKey} focus={focus} score={null} onClose={closeLook}>
-                            {decide && !end && <CardMoves id={focus.card.id ?? ''} decide={decide} pick={picks.get(focus.card.id ?? '')} disabled={!live} onAct={act} />}
+                            {decide && !end && <CardMoves id={focus.card.id ?? ''} decide={decide} pick={picks.get(focus.card.id ?? '')} disabled={!live} onAct={act} result={(p) => previewText(p, nameOf, seat)} />}
                         </FloatingZoom>
                     )
                     : <FloatingZoom key={zoomKey} focus={focus} score={null} />)}
@@ -635,17 +693,43 @@ function useDockTop(root: RefObject<HTMLElement | null>) {
     }, [root]);
 }
 
-/** The moves of a card a tap opened: one button each, with the decision's words above them. */
-function CardMoves({ id, decide, pick, disabled, onAct }: { id: string; decide: DecideMsg; pick: Action | undefined; disabled: boolean; onAct: (a: Action) => void }) {
+/** The moves of a card a tap opened: one button each, with the decision's words above them and what each would do. */
+function CardMoves({ id, decide, pick, disabled, onAct, result }: { id: string; decide: DecideMsg; pick: Action | undefined; disabled: boolean; onAct: (a: Action) => void; result: (p: NonNullable<Action['preview']>) => string }) {
     const moves = [...(pick ? [pick] : []), ...decide.actions.filter((a) => a.kind === 'perCardButton' && a.cardUuid === id)];
+    const shown = moves.filter((a) => a.preview);
     return (
         <div className="flex flex-col gap-2 border-t border-line pt-2">
             <span className="text-xs text-dim">{promptText(decide)}</span>
             {moves.length > 0
                 ? <div className="flex flex-wrap gap-2">{moves.map((a) => <button key={a.i} className={`play-btn primary${isDud(a) ? ' dud' : ''}`} disabled={disabled} onClick={() => onAct(a)}>{moveVerb(a, decide)}{isDud(a) && <span className="dud-note">no effect</span>}</button>)}</div>
                 : <span className="text-xs text-faint">No move with this card now.</span>}
+            {shown.map((a) => <span key={a.i} className="move-result">{shown.length > 1 ? `${moveVerb(a, decide)}: ` : 'Result: '}{result(a.preview!)}</span>)}
         </div>
     );
+}
+
+/** The names of the cards on the board by id (units, their upgrades, leaders, bases, hands), for result previews. */
+function boardNames(s: Snapshot | null): (id: string) => string | null {
+    const m = new Map<string, string>();
+    for (const seat of ['p1', 'p2'] as Seat[]) {
+        const p = s?.players[seat];
+        if (!p) {
+            continue;
+        }
+        for (const c of [p.base, p.leader, ...p.ground, ...p.space, ...p.hand]) {
+            if (c?.id) {
+                m.set(c.id, c.n);
+            }
+        }
+        for (const u of [...p.ground, ...p.space]) {
+            for (const x of u.u ?? []) {
+                if (x.id) {
+                    m.set(x.id, x.n);
+                }
+            }
+        }
+    }
+    return (id) => m.get(id) ?? null;
 }
 
 /** A move as a log line. */
@@ -698,7 +782,7 @@ function drawnIds(s: Snapshot, you: Seat): Set<string> {
  * The decision, drawn between the two sides of the board: what is asked, the cards a prompt shows, a split, and the
  * buttons. While a move made by touch waits to go, it shows that move with Undo instead.
  */
-function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook, trail, onStopAuto }: {
+function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook, trail, onStopAuto, result, undoing, note, onTakeBack }: {
     decide: DecideMsg | null; sending: boolean; held: Held | null; onUndo: () => void; onSendNow: () => void; problem: string | null; board: Snapshot | null; bot: string; drawn: Set<string>; pick: Pick;
     onAct: (a: Action, split?: { id: string; amount: number }[]) => void; ended: boolean; keys: PlayKeys; hints: boolean; splitApi: RefObject<SplitApi | null>;
     /** a tray card shown enlarged (hovered, or focused with ⇧ + its key), and let go */
@@ -707,6 +791,10 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
     trail: Trail[];
     /** stop a one-answer move and turn them off */
     onStopAuto: () => void;
+    /** what the answer waiting to go, or the one under the pointer, would do (a result preview), in words */
+    result: string | null;
+    /** a move being taken back; what the last take-back did; take back the last move, when the game lets the person */
+    undoing: boolean; note: string | null; onTakeBack: (() => void) | null;
 }) {
     const [all, setAll] = useState(false);
     // the key cap a button shows: Space on the main button, the bar's number (or ⇧number) on the others
@@ -724,6 +812,7 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
                 <span className="flex flex-col min-w-0 flex-1">
                     <span className="text-dim text-xs">{held.auto ? 'The only answer: sending it' : 'Sending in a moment'}</span>
                     <span className="font-display font-semibold text-[15px] truncate">{held.text}</span>
+                    {result && <span className="move-result">{result}</span>}
                 </span>
                 <button className="play-btn primary" onClick={onUndo}>{held.auto ? <><Hand size={15} /> Stop</> : <><Undo2 size={15} /> Undo</>}{hints && <Kbd k="Escape" className="hint" />}</button>
                 <button className="play-btn ghost" onClick={onSendNow}><Send size={14} /> Send now</button>
@@ -736,11 +825,20 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
     const said = trail.length > 0 && (
         <span className="trail-line" title={trail.map((t) => t.text).join(' → ')}><b>{bot}:</b> {trail.map((t) => t.text).join(' → ')}</span>
     );
-    if (!decide) {
+    // takes back the last move that went, and the other side's moves after it: while the bot thinks, at its next decision
+    const takeBack = onTakeBack && !sending && !undoing && (
+        <button className="play-btn ghost undo-btn" onClick={onTakeBack} title="Take back your last move, and what the bot did after it (Ctrl+Z or ⌘Z)">
+            <Undo2 size={14} /> Undo
+        </button>
+    );
+    if (!decide || undoing) {
         return strip || (
             <div className="play-bar waiting">
-                <span className="flex items-center gap-2 text-dim">{sending ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : <><Loader2 size={15} className="animate-spin" /> {bot} is thinking…</>}</span>
-                {!sending && said}
+                <span className="flex items-center gap-2 text-dim">
+                    <Loader2 size={15} className="animate-spin" /> {undoing ? 'Taking back your move…' : sending ? 'Sending…' : `${bot} is thinking…`}
+                </span>
+                {!sending && !undoing && said}
+                {takeBack}
             </div>
         );
     }
@@ -757,11 +855,13 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
             {strip}
             <div className="play-bar" role="region" aria-label="Your decision" data-seq={decide.seq} hidden={!!held}>
                 {said}
+                {result && !held && <span className="move-result" role="status">{result}</span>}
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <span className="font-display font-semibold text-[15px]">{promptText(decide)}</span>
                     {glowing && <span className="text-dim text-xs no-touch">Click a glowing card{hints ? <span className="keys-only"> or press its key</span> : ''}, or choose below.</span>}
                     {glowing && <span className="text-dim text-xs touch-only">Tap an icon on a card to make that move, or tap the card to read it.</span>}
                     {problem && <span className="text-p2 text-xs">{problem}</span>}
+                    {note && !problem && <span className="text-dim text-xs" role="status">{note}</span>}
                 </div>
                 {tray.length > 0 && (
                     <div className="flex flex-wrap gap-3 items-start">
@@ -795,7 +895,10 @@ function PromptBar({ decide, sending, held, onUndo, onSendNow, problem, board, b
                             ? <HoldButton key={a.i} className={cls} disabled={sending} onGo={() => onAct(a)}>{words(a)}{cap(a)}</HoldButton>
                             : <button key={a.i} className={cls} disabled={sending} onClick={() => onAct(a)}>{words(a)}{cap(a)}</button>;
                     })}
-                    <button className="play-btn ghost ml-auto" onClick={() => setAll((x) => !x)} aria-expanded={all}>{all ? 'Hide' : 'All'} moves ({acts.length})</button>
+                    <span className="ml-auto flex gap-2">
+                        {takeBack}
+                        <button className="play-btn ghost" onClick={() => setAll((x) => !x)} aria-expanded={all}>{all ? 'Hide' : 'All'} moves ({acts.length})</button>
+                    </span>
                 </div>
                 {all && (
                     <div className="flex flex-wrap gap-1.5 border-t border-line pt-2">
@@ -820,8 +923,7 @@ const bigMove = (a: Action, m: DecideMsg) => a.kind === 'button' && !!m.prompt.a
 const HOLD_MS = 450;
 
 /**
- * A button for a move that can't be taken back and ends the person's options for now (Pass, Claim Initiative,
- * Concede). A finger holds it while a ring fills, and it goes when the ring is full; a shorter tap only says "Hold".
+ * A button for a big move that ends the person's options for now (Pass, Claim Initiative, Concede). A finger holds it while a ring fills, and it goes when the ring is full; a shorter tap only says "Hold".
  * A mouse click or a key goes at once, as any button.
  */
 function HoldButton({ onGo, className, disabled, title, children }: { onGo: () => void; className: string; disabled?: boolean; title?: string; children: ReactNode }) {

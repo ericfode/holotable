@@ -181,6 +181,7 @@ export function KeyHelp({ mode, live = false, seat = 'p1', onClose }: { mode: 'p
                             <Row keys={<><Kbd k="ShiftLeft" /> + card letter</>}>Look at a card on the board or in your hand without picking it; then <Kbd k="Enter" /> picks it, <Kbd k="Escape" /> closes</Row>
                             <Row keys={<>card key</>}>Splitting damage or healing: one more there. <Kbd k="Backspace" /> takes the last one back, <Kbd k="Space" /> confirms</Row>
                             <Row keys={<Kbd k="Escape" />}>Cancel, when the choice offers it</Row>
+                            <Row keys={<><Kbd k="Ctrl" /> <Kbd k="KeyZ" /></>}>Undo: take back your last move and the bot's moves after it (games against a bot; ⌘Z on a Mac)</Row>
                             <Row keys={<Kbd k="Slash" />}>Search a long list of choices</Row>
                             <Row keys={<Kbd k="?" />}>This list</Row>
                         </dl>
