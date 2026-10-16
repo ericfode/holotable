@@ -33,6 +33,7 @@ import {
 import { OMNI_V1_ID } from '../data/omniV1';
 import type { Game, Seat, Snapshot } from '../data/types';
 import { PlayPage } from '../pages/PlayPage';
+import { feedbackContext, reportOnScreen } from './feedback';
 import { TableContext, type BotInfo, type DeckOption, type PairRequest, type PairState, type Pairing, type PeopleMode, type Table, type TableOptions } from '../play/client';
 import type { Act, TableMsg } from '../play/protocol';
 
@@ -253,6 +254,12 @@ export function mount(el: HTMLElement, opts: MountOptions = {}): ViewerHandle {
         ...(opts.art != null ? { art: opts.art } : {})
     });
     let ctl: ViewerControl | null = null;
+    // the step on screen, for a host page's feedback box (feedback.ts)
+    let at = { step: opts.step ?? 0, n: 0 };
+    const onStep = (step: number, n: number) => {
+        at = { step, n };
+        opts.onStep?.(step, n);
+    };
     let pending: number | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let dead = false;
@@ -269,7 +276,7 @@ export function mount(el: HTMLElement, opts: MountOptions = {}): ViewerHandle {
         root.render(
             <SettingsProvider store={settings}><MotionConfig reducedMotion="user">
                 <GameViewer key={key} game={game} live={!game.end} startStep={opts.step ?? (opts.stepN != null ? indexOfN(opts.stepN) : 0)} evals={evals}
-                    lens={lens} registry={registry} score={scoreKey} onScore={onScore} estimate={opts.estimate} spots={opts.spots !== false} layout={opts.layout ?? 'full'} onStep={opts.onStep} keyboard={opts.keyboard ?? 'focus'}
+                    lens={lens} registry={registry} score={scoreKey} onScore={onScore} estimate={opts.estimate} spots={opts.spots !== false} layout={opts.layout ?? 'full'} onStep={onStep} keyboard={opts.keyboard ?? 'focus'}
                     control={(c) => {
                         ctl = c;
                         if (pending != null) {
@@ -327,6 +334,18 @@ export function mount(el: HTMLElement, opts: MountOptions = {}): ViewerHandle {
         })).then((got) => addLensList(got.filter((f): f is LensEntry => !!f), gen));
     }
     const gameId = opts.gameId ?? opts.url?.split(/[?#]/)[0].split('/').pop()?.replace(/\.jsonl$/, '');
+    const unreport = reportOnScreen(() => {
+        if (!game) {
+            return null;
+        }
+        const st = game.steps[at.step];
+        return {
+            kind: 'replay', game: gameId ?? null, url: opts.url ?? null, step: at.step, n: st?.n ?? at.n, steps: game.steps.length, ended: !!game.end,
+            players: game.header.players.map((p) => ({ seat: p.id, bot: p.bot, deck: p.deck })),
+            round: st?.state.round ?? null, phase: st?.state.phase ?? null, actor: st?.pid ?? null, action: st?.action?.label ?? st?.label ?? null,
+            board: st?.state ?? null
+        };
+    });
     if (opts.lensIndexUrl && gameId) {
         const gen = lensGen;
         fetchLenses(opts.lensIndexUrl, gameId).then((r) => {
@@ -404,6 +423,7 @@ export function mount(el: HTMLElement, opts: MountOptions = {}): ViewerHandle {
         },
         destroy: () => {
             dead = true;
+            unreport();
             clearTimeout(timer);
             releaseSettingsStore(settings);
             root.unmount();
@@ -566,6 +586,8 @@ export function setCardArt(on: boolean) {
 }
 
 export { setArtResolver, loadArtPack, loadCardText, cardTextBySet as cardText };
+/** What each mounted viewer and play screen shows now (game, step, prompt, board), for a host page's feedback box. */
+export { feedbackContext };
 export type { ArtResolver, CardText, CardTextFile };
 export { GameViewer, Glyph, Spine, ActionIcon, EdgeBreakdown, parseGame, classify as classifyGame, pivotalActions, describe, tierFor, ACTION_CLASSES };
 /** @deprecated kept for one release: earlier builds' Omni v1 helpers; read a score with scoreSeries and scoreAt */
