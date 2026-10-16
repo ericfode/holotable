@@ -70,6 +70,8 @@ export function Versus({ opts, bot, onBot, deck, onDeck, botDeck, onBotDeck, bus
     const left = prepText(prep, info);
     const pct = busy && prep && prep.total ? Math.round((100 * (prep.total - (prep.left ?? 0))) / prep.total) : null;
     const hue = nameHue(bot);
+    // the leader's card: smaller on a phone, so the Play button stays in sight
+    const leaderW = typeof window !== 'undefined' && window.matchMedia?.('(min-width: 760px)').matches ? 232 : 196;
     return (
         <div className="versus">
             <section className="vs-side vs-bot" aria-label="Your opponent">
@@ -81,37 +83,28 @@ export function Versus({ opts, bot, onBot, deck, onDeck, botDeck, onBotDeck, bus
                 <Dots count={opts.bots.length} index={bi} />
                 <div className="vs-lists">
                     {opts.bots.length > 1 && (
-                        <label className="vs-list">
-                            <span>Bot</span>
-                            <select id="play-bot" className="play-select" value={bot} disabled={busy} onChange={(e) => onBot(e.target.value)}>
-                                {opts.bots.map((b) => <option key={b} value={b}>{opts.botInfo?.[b]?.title || b}</option>)}
-                            </select>
-                        </label>
-                    )}
-                    <label className="vs-list">
-                        <span>Its deck</span>
-                        <select id="play-bot-deck" className="play-select" value={botDeck} disabled={busy} onChange={(e) => onBotDeck(e.target.value)}>
-                            <option value={RANDOM}>Random: one of the {opts.decks.length} lists</option>
-                            {opts.decks.map((x) => <option key={x.name} value={x.name}>{x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
+                        <select id="play-bot" className="play-select" aria-label="Bot" value={bot} disabled={busy} onChange={(e) => onBot(e.target.value)}>
+                            {opts.bots.map((b) => <option key={b} value={b}>{opts.botInfo?.[b]?.title || b}</option>)}
                         </select>
-                    </label>
+                    )}
+                    <select id="play-bot-deck" className="play-select" aria-label="The bot's deck" value={botDeck} disabled={busy} onChange={(e) => onBotDeck(e.target.value)}>
+                        <option value={RANDOM}>Its deck: random</option>
+                        {opts.decks.map((x) => <option key={x.name} value={x.name}>Its deck: {x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
+                    </select>
                 </div>
             </section>
             <div className="vs-mark" aria-hidden="true"><span>VS</span></div>
             <section className="vs-side vs-you" aria-label="Your deck">
                 <Stage label="deck" count={opts.decks.length} onStep={(by) => onDeck(step(opts.decks, di, by).name)} disabled={busy}>
-                    {d && <Card key={d.name} card={{ id: 'vs-leader', n: names!.leader, s: d.leader }} shape="wide" kind="leader" size="lg" width={232} />}
+                    {d && <Card key={d.name} card={{ id: 'vs-leader', n: names!.leader, s: d.leader }} shape="wide" kind="leader" size="lg" width={leaderW} />}
                 </Stage>
                 <h2 className="vs-name"><span className="vs-you-word">You</span> · {names?.leader ?? 'no deck'}</h2>
                 {names && <p className="vs-meta">{names.base}{d?.style ? ` · ${d.style}` : ''}</p>}
                 <Dots count={opts.decks.length} index={di} />
                 <div className="vs-lists">
-                    <label className="vs-list">
-                        <span>Your deck</span>
-                        <select id="play-deck" className="play-select" value={deck} disabled={busy} onChange={(e) => onDeck(e.target.value)}>
-                            {opts.decks.map((x) => <option key={x.name} value={x.name}>{x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
-                        </select>
-                    </label>
+                    <select id="play-deck" className="play-select" aria-label="Your deck" value={deck} disabled={busy} onChange={(e) => onDeck(e.target.value)}>
+                        {opts.decks.map((x) => <option key={x.name} value={x.name}>{x.name}{x.style ? ` · ${x.style}` : ''}</option>)}
+                    </select>
                 </div>
                 {deckExtra}
             </section>
