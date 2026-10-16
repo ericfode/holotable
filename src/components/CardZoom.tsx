@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { motion } from 'motion/react';
 import { BrainCircuit } from 'lucide-react';
 import { Card, fmtCardValue, regretTag, type CardValue, type Focus } from './Card';
@@ -332,15 +332,26 @@ export function CardInspector({ focus, score }: CardZoomProps) {
  */
 export function FloatingZoom({ focus, score }: CardZoomProps) {
     const text = useFocusText(focus);
+    const ref = useRef<HTMLDivElement>(null);
+    // how much taller the facts are than the 96px guess (long names, upgrades, captives), measured before paint
+    const [extra, setExtra] = useState(0);
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const wide = focus.shape === 'wide';
-    // the card's height may use the window's height less 8px margins and the facts under it (96px), so a short window fits it
-    const fit = Math.max(100, vh - 16 - 96);
+    // the card's height may use the window's height less 8px margins and the facts under it, so a short window fits it
+    const facts = 96 + extra;
+    const fit = Math.max(100, vh - 16 - facts);
     const cw = Math.min(wide ? 360 : 264, vw - 48, wide ? fit * 7 / 5 : fit * 5 / 7);
     const ch = wide ? cw * 5 / 7 : cw * 7 / 5;
     const W = cw + 24;
-    const H = ch + 96;
+    const H = ch + facts;
+    // a narrower card can wrap the facts further, so measure again until the panel is no taller than H
+    useLayoutEffect(() => {
+        const h = ref.current?.offsetHeight ?? 0;
+        if (h > H + 1) {
+            setExtra((e) => e + h - H);
+        }
+    });
     const r = focus.rect ?? { left: vw / 2, right: vw / 2, top: vh / 2, bottom: vh / 2 };
     let left: number;
     let top: number;
@@ -352,7 +363,7 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
         top = Math.max(8, Math.min(vh - H - 8, r.top - 20));
     }
     return (
-        <motion.div className="panel !bg-panel fixed z-50 p-3 flex flex-col gap-2 pointer-events-none shadow-2xl" style={{ left, top, width: W }}
+        <motion.div ref={ref} className="panel !bg-panel fixed z-50 p-3 flex flex-col gap-2 pointer-events-none shadow-2xl" style={{ left, top, width: W }}
             initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.12 }} aria-hidden="true">
             <Card card={focus.card} back={focus.back} shape={focus.shape} size="xl" kind={focus.kind} width={cw} face={faceOf(focus, text)} />
             <CardFacts focus={focus} score={score} compact />
