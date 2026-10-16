@@ -277,6 +277,9 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     const cap = size !== 'sm' ? unit?.cap ?? [] : [];
     // tokens (Battle Droid, Shield…) have no set number; a text face that says "Token unit" makes the tag redundant
     const token = (unit?.t === 1 || isToken(card)) && (showImg || !face);
+    const footed = lensed || stats || named || !!shownStatuses?.length;
+    // over the name bar and stats when the card has them, so neither hides the other
+    const dudMark = <span className="dud-mark" title="Playing or using this now would change nothing">No effect</span>;
     const cls = ['card', size !== 'md' ? size : '', shape === 'wide' ? 'wide' : '', exhausted ? 'exh' : '', lensed ? 'lensed' : '', showImg ? 'art' : '', named ? 'named' : '', pickState === 'pick' ? 'pickable' : pickState === 'picked' ? 'picked' : '', dud ? 'dud' : '', asking ? 'asking' : ''].filter(Boolean).join(' ');
     const pressProps = onFocus || pickState
         ? {
@@ -335,7 +338,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
                 </div>
             )}
             {pickKey && <Kbd k={pickKey} className="pick-key" />}
-            {dud && <span className="dud-mark" title="Playing or using this now would change nothing">No effect</span>}
+            {dud && !footed && dudMark}
             {(move || waiting) && <MoveChip id={card.id!} name={card.n} move={move} waiting={waiting} dud={dud} picker={picker!} />}
             {(leader || unit?.sn || token || ups || cap.length > 0) && (
                 <div className="top">
@@ -363,8 +366,9 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
                     )}
                 </div>
             )}
-            {(lensed || stats || named || !!shownStatuses?.length) && (
+            {footed && (
                 <div className="foot">
+                    {dud && dudMark}
             {shownStatuses?.length ? <div className="card-statuses" style={{ position: 'static', marginInline: 2 }}>{shownStatuses.map((status, i) =>
                 <span key={`${status.kind}:${i}`} className={`card-status ${status.kind}${status.lostKeyword && status.keywordWindow ? ' keyword-window' : ''}${status.grantedAbility ? ' granted' : ''}${status.generatedRestriction ? ' generated-restriction' : ''}${status.generatedSentinel ? ' generated-sentinel' : ''}${status.keyword?.name === 'Restore' ? ' restore' : ''}${status.keyword?.name === 'Overwhelm' && status.duration === 'phase' ? ' overwhelm' : ''}`} title={status.label} data-effect-constraint={status.actionConstraintId} data-effect-duration={status.duration} data-effect-title-boost-id={status.titleBoost?.id} data-effect-generated-restriction-id={status.generatedRestriction?.id} data-effect-generated-sentinel-id={status.generatedSentinel?.id}>{status.lostKeyword === 'Saboteur' && status.keywordWindow ? unit?.sn ? <>SENTINEL · PHASE<br />NO SABOTEUR</> : <>NO SABOTEUR<br />PHASE</> : status.generatedRestriction && status.restriction === 'cannot-attack-base' ? <>NO BASE<br />PHASE</> : status.generatedSentinel ? <>SENTINEL<br />PHASE</> : status.grantedAbility ? <>WHEN DEFEATED<br />{status.grantedAbility.effect === 'create-clone' ? 'CREATE CLONE' : 'ENEMY UNIT 2'}<br />PHASE</> : status.keyword?.name === 'Restore' ? <>RESTORE {status.keyword.amount}{status.duration === 'phase' ? ' · PHASE' : ''}</> : status.keyword?.name === 'Overwhelm' && status.duration === 'phase' ? <>OVERWHELM<br />PHASE</> : status.restriction === 'must-attack' && status.duration === 'next-action' ? <>NEXT {controllerSeat?.toUpperCase()} ACTION<br />ATTACK IF ABLE</> : status.label}</span>
             )}</div> : null}
