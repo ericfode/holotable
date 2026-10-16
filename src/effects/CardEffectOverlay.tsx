@@ -13,6 +13,7 @@ import { AbilityGlyph, CardGhost, Debris, EnergyBeam, OutcomeVisual, Shockwave, 
 import './effects.css';
 import { structuredFallbackText } from './structured';
 import { StructuredSignature } from './structuredSignature';
+import { sharedEffectRole, sharedSemanticMotion } from './semanticMotion';
 import { BatchA01Signature } from './batchA01Signatures';
 import { BatchA02Signature, batchA02Covers, isBatchA02 } from './batchA02Signatures';
 import { BatchA03Signature, batchA03Covers, isBatchA03 } from './batchA03Signatures';
@@ -711,9 +712,9 @@ function EffectScene({ cue, boardRef, onComplete, previewProgress }: Omit<Props,
             </defs>
             <g className="ce-scene">
                 <Signature cue={cue} geometry={geometry} p={progress} />
-                {geometry.outcomes.filter(placed => !covered(placed) && !(cue.definition.id === 'power-failure' && placed.outcome.kind === 'defeat')
+                {geometry.outcomes.filter(placed => !covered(placed) && !(cue.structured && sharedSemanticMotion(placed.outcome.kind)) && !(cue.definition.id === 'power-failure' && placed.outcome.kind === 'defeat')
                     && !(cue.definition.id === 'recruit' && placed.outcome.kind === 'draw' && geometry.outcomes.some(item => item.outcome.kind === 'search')))
-                    .map(placed => <OutcomeVisual key={placed.key} placed={placed} p={progress} />)}
+                    .map(placed => <g key={placed.key} data-semantic-role={cue.structured ? sharedEffectRole(placed.outcome.kind) : undefined}><OutcomeVisual placed={placed} p={progress} /></g>)}
             </g>
         </svg>
         <div className="ce-outcome-labels">
