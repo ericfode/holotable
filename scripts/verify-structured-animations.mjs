@@ -33,7 +33,7 @@ async function capture(p,file,board=true) {
     return {file,sha256:createHash('sha256').update(image).digest('hex')};
 }
 async function open(p,card,progress=18,shared=true) {
-    await p.goto(`${url}/#/effects?card=${card}&progress=${progress}${shared?'&recipes=1':''}`);
+    await p.goto(`${url}/#/effects?card=${card}&progress=${progress}${shared?'':'&renderer=legacy'}`);
     await p.locator(`.card-effect-overlay[data-effect-renderer="${shared?'structured':'signature'}"]`).waitFor();
     assert.ok((await identity(p).innerText()).length);await ready(p);await p.mouse.move(0,0);
 }
@@ -48,9 +48,9 @@ try {
             const before=await snapshot(p);
             if(viewport.width===1440&&card==='repair') {
                 await open(p,card,46,false);row.frames.push(await capture(p,'before-repair-board.png'));
-                await p.getByRole('button',{name:'Shared JSON recipes',exact:true}).click();
+                await p.getByRole('combobox',{name:'Animation renderer',exact:true}).selectOption('default');
                 await p.locator('[data-effect-renderer="structured"]').waitFor();
-                assert.equal(await p.getByRole('button',{name:'Shared JSON recipes',exact:true}).getAttribute('aria-pressed'),'true');
+                assert.equal(await p.getByRole('combobox',{name:'Animation renderer',exact:true}).inputValue(),'default');
             }
             for(const [label,value] of [['Anticipation',18],['Impact',46],['Outcome',72],['Settle',90]]) {
                 await p.getByRole('button',{name:label,exact:true}).click();await p.mouse.move(0,0);

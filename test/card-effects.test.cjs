@@ -249,7 +249,8 @@ test('a real classified targeted play cues on resolution, carrying its source an
     const cues = detectCardEffects(game, actions);
     assert.deepEqual([...cues.keys()], [2]);
     const cue = cues.get(2);
-    assert.equal(cue.definition.id, 'open-fire');
+    assert.equal(cue.definition.id, 'structured:open-fire');
+    assert.ok(cue.structured, 'ordinary catalogue entries use shared rendering by default');
     assert.deepEqual(cue.source, openFire);
     assert.deepEqual(cue.target, stormtrooper);
     assert.equal(cue.targetSeat, 'p2');
@@ -264,7 +265,8 @@ test('resource, target, attack, setup, cancelled play and ability actions do not
         assert.equal(detectCardEffects(game, [{ ...action, cls }]).size, 0, cls);
     }
     // A supported card selected by some other event is a target, not the source.
-    assert.equal(detectCardEffects(game, [{ ...action, card: { n: 'Other Event', s: null }, target: openFire }]).size, 0);
+    const unknown = detectCardEffects(game, [{ ...action, card: { n: 'Other Event', s: null }, target: openFire }]).get(action.until);
+    assert.ok(unknown.structured.fallbacks.includes('unsupported-definition'), 'unknown sources use an explicit shared fallback, never target identity as a signature');
     assert.equal(detectCardEffects(game, [{ ...action, card: null, target: openFire }]).size, 0);
 });
 
@@ -355,10 +357,10 @@ test('live tail actions wait for the next action or end record to confirm resolu
     game.steps = complete.slice(0, 3);
     assert.equal(detectCardEffects(game, classifyGame(game)).size, 0, 'last answer might still await a follow-up');
     game.steps = complete;
-    assert.equal(detectCardEffects(game, classifyGame(game)).get(2).definition.id, 'open-fire');
+    assert.equal(detectCardEffects(game, classifyGame(game)).get(2).definition.id, 'structured:open-fire');
     game.steps = complete.slice(0, 3);
     game.end = { t: 'end', winner: 'p1', round: 2, steps: 2, outcome: 'win', error: null };
-    assert.equal(detectCardEffects(game, classifyGame(game)).get(2).definition.id, 'open-fire');
+    assert.equal(detectCardEffects(game, classifyGame(game)).get(2).definition.id, 'structured:open-fire');
 });
 
 test('modal card explanations retain the choose-two rule', () => {
@@ -389,7 +391,7 @@ function evidence(id, change) {
 test('observed damage, defeat and return describe different recorded transitions', () => {
     const hit = evidence('open-fire', (_, after) => { after.players.p2.ground[0].d = 4; });
     assert.deepEqual(hit.outcomes.map(o => [o.kind, o.amount, o.card.id]), [['damage', 4, 'enemy']]);
-    assert.deepEqual(detectCardEffects(hit.game, [hit.action]).get(2).outcomes, hit.outcomes);
+    assert.deepEqual(detectCardEffects(hit.game, [hit.action]).get(2).outcomes.filter(outcome => !outcome.sourceDisposal), hit.outcomes);
     const defeated = evidence('open-fire', (_, after) => {
         after.players.p2.ground = [];
         after.players.p2.discard = [{ n: 'Stormtrooper', s: 'SOR_140', id: 'enemy' }];

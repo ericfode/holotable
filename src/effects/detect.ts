@@ -1,7 +1,8 @@
 import type { Action } from '../data/actions';
 import type { CardRef, Game, Seat } from '../data/types';
-import { planStructuredCue, structuredDefinition } from './structured';
+import { structuredCard } from './structured';
 import { findCardEffect } from './catalogue';
+import { resolveCardAnimation, routeAnimationCue } from './animationResolver';
 import { observedOutcomes } from './outcomes';
 import type { CardEffectCue } from './types';
 
@@ -53,7 +54,7 @@ function effectTarget(game: Game, action: Action, id: string): Target | null {
 export function detectCardEffects(game: Game, actions: Action[]): Map<number, CardEffectCue> {
     const cues = new Map<number, CardEffectCue>();
     for (const action of actions) {
-        if (action.cls !== 'play-event' || !action.card || action.index < 1 || action.until < action.index || !game.steps[action.until]) {
+        if (!['play-event', 'play-unit', 'play-upgrade', 'ability', 'deploy'].includes(action.cls) || !action.card || action.index < 1 || action.until < action.index || !game.steps[action.until]) {
             continue;
         }
         // The final observed prompt answer in a live file can still be waiting for a target or a mode choice.
@@ -61,22 +62,28 @@ export function detectCardEffects(game: Game, actions: Action[]): Map<number, Ca
         if (!game.end && action.until === game.steps.length - 1) {
             continue;
         }
-        const authored = findCardEffect(action.card);
-        const definition = authored ?? structuredDefinition(action.card);
+        const spec = structuredCard(action.card);
+        if (action.cls === 'ability' && spec?.types.includes('event')) continue;
+        if (action.cls === 'play-unit' && spec && !spec.types.includes('unit')) continue;
+        // The classifier also uses an Attach prompt as a heuristic; an event can play an upgrade.
+        if (action.cls === 'play-upgrade' && spec && !spec.types.includes('upgrade') && !spec.types.includes('event')) continue;
+        if (action.cls === 'deploy' && spec && !spec.types.includes('leader')) continue;
+        const { definition } = resolveCardAnimation(action.card);
+        const logicalId = findCardEffect(action.card)?.id ?? definition.id;
         if (!definition) {
             continue;
         }
-        const target = effectTarget(game, action, definition.id);
+        const target = effectTarget(game, action, logicalId);
         const outcomes = observedOutcomes(game, action);
-        if (definition.id === 'strike-true' || definition.id === 'karabast') {
-            const title = definition.id === 'strike-true' ? /^A friendly unit deals damage equal to its power to an enemy unit/i
+        if (logicalId === 'strike-true' || logicalId === 'karabast') {
+            const title = logicalId === 'strike-true' ? /^A friendly unit deals damage equal to its power to an enemy unit/i
                 : /^A friendly unit deals damage equal to its damage plus one to an enemy unit/i;
             const origin = selectedTarget(game, action, title, true);
             if (origin) for (const outcome of outcomes) {
                 if (outcome.kind === 'damage' && outcome.zone !== 'base') {
                     outcome.sourceCard = origin.card;
                     outcome.fromSeat = origin.seat;
-                    if (definition.id === 'karabast' && origin.card.id && 'd' in origin.card
+                    if (logicalId === 'karabast' && origin.card.id && 'd' in origin.card
                         && typeof origin.card.d === 'number' && outcome.amount === origin.card.d + 1) {
                         outcome.damageType = 'ability';
                         outcome.basis = { kind: 'source-damage-plus-one', sourceIds: [origin.card.id], value: origin.card.d, increment: 1 };
@@ -84,7 +91,7 @@ export function detectCardEffects(game: Game, actions: Action[]): Map<number, Ca
                 }
             }
         }
-        if (definition.id === 'force-throw') {
+        if (logicalId === 'force-throw') {
             for (let i = action.index + 1; i <= action.until; i++) {
                 const step = game.steps[i];
                 if (!step.pid || step.action?.kind !== 'card' || !/^Choose a card to discard for Force Throw's effect$/i.test(step.title ?? '')) continue;
@@ -104,7 +111,7 @@ export function detectCardEffects(game: Game, actions: Action[]): Map<number, Ca
                 }
             }
         }
-        const upgrade = definition.id === 'power-failure' ? outcomes.find(outcome => outcome.sourceCard) : undefined;
+        const upgrade = logicalId === 'power-failure' ? outcomes.find(outcome => outcome.sourceCard) : undefined;
         const cue: CardEffectCue = {
             definition,
             seat: action.seat,
@@ -116,7 +123,7 @@ export function detectCardEffects(game: Game, actions: Action[]): Map<number, Ca
                 beforeStep: action.index - 1, afterStep: action.until },
             key: `${game.header.seed}:${action.index}:${action.until}:${action.seat}:${definition.id}`
         };
-        cues.set(action.until, authored ? cue : planStructuredCue(cue));
+        cues.set(action.until, routeAnimationCue(cue));
     }
     return cues;
 }

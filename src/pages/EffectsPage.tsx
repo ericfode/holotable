@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ChevronLeft, ChevronRight, Image, Pause, Play, RotateCcw, Search, Shapes, Sparkles } from 'lucide-react';
 import { GameViewer } from '../kit/GameViewer';
 import { EffectSoundControls } from '../components/EffectSoundControls';
+import { resolveCardAnimation, type AnimationRenderer } from '../effects/animationResolver';
 import { structuredCard } from '../effects/structured';
 import { CARD_EFFECTS } from '../effects/catalogue';
 import { ABILITY_LANGUAGE, cardAbilities, showcaseAbilities, showcaseLabel, type AbilityKind } from '../effects/abilities';
@@ -42,7 +43,7 @@ function EffectsShowcase() {
         const value = initial.get('progress');
         return value !== null && Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value) / 100)) : undefined;
     });
-    const [structured, setStructured] = useState(() => initial.get('recipes') === '1');
+    const [renderer, setRenderer] = useState<AnimationRenderer>(() => initial.get('renderer') === 'legacy' ? 'legacy' : initial.get('recipes') === '1' ? 'shared' : 'default');
     const [nonce, setNonce] = useState(0);
     const [boundary, setBoundary] = useState<'play' | 'regroup-start' | 'next-action' | 'phase-end'>(() => {
         const value = initial.get('stage');
@@ -61,7 +62,8 @@ function EffectsShowcase() {
     const stage = boundary === 'regroup-start' && hasRegroupExample(selected.id) ? 'regroup-start' as const
         : boundary === 'phase-end' && hasPhaseEndExample(selected.id) ? 'phase-end' as const
         : boundary === 'next-action' && hasNextActionExample(selected.id) ? 'next-action' as const : undefined;
-    const preview = useMemo(() => ({ definition: selected, nonce, seat: 'p1' as const, progress, stage, structured }), [selected, nonce, progress, stage, structured]);
+    const preview = useMemo(() => ({ definition: selected, nonce, seat: 'p1' as const, progress, stage, renderer }), [selected, nonce, progress, stage, renderer]);
+    const selectedRoute = resolveCardAnimation({ n: selected.name, s: selected.setCode });
     const selectedAbilities = new Set(showcaseAbilities(selected.id).map((beat) => beat.kind));
     const filtered = CARD_EFFECTS.filter((c) => (family === 'all' || c.family === family)
         && (ability === 'all' || cardAbilities(c.id).some((beat) => beat.kind === ability))
@@ -125,7 +127,7 @@ function EffectsShowcase() {
                 <div>
                     <div className="effects-kicker"><Sparkles size={13} />Holotable / Card effects</div>
                     <h1>Feel the impact. Read the play.</h1>
-                    <p>{CARD_EFFECTS.length} signature animations, one shared language for what happens next.</p>
+                    <p>{CARD_EFFECTS.length} staged examples. Shared card animations by default, with deliberate special treatments.</p>
                 </div>
                 <div className="effects-count"><strong>{CARD_EFFECTS.length}</strong><span>cards brought<br />to life</span></div>
             </header>
@@ -146,8 +148,10 @@ function EffectsShowcase() {
                         <span className="effects-position num">{String(selectedIndex + 1).padStart(2, '0')}<span> / {CARD_EFFECTS.length}</span></span>
                     </div>
                     <div className="effects-boundary" role="group" aria-label="Animation renderer">
-                        <button className="btn" aria-pressed={structured} onClick={() => { setStructured(value => !value); setNonce(n => n + 1); }}>Shared JSON recipes</button>
-                        {structured && <span>{structuredCard({ n: selected.name, s: selected.setCode })?.recipe ?? 'Unsupported definition · board result only'}</span>}
+                        <label>Animation <select aria-label="Animation renderer" value={renderer} onChange={event => { setRenderer(event.target.value as AnimationRenderer); setNonce(n => n + 1); }}>
+                            <option value="default">Default</option><option value="shared">Shared recipes only</option><option value="legacy">Legacy composition</option>
+                        </select></label>
+                        <span>{renderer === 'legacy' ? 'Archived composition comparison' : renderer === 'default' && selectedRoute.override ? selectedRoute.override.reason : `Shared recipes · ${structuredCard({ n: selected.name, s: selected.setCode })?.recipes.join(', ') || 'observed outcomes only'}`}</span>
                     </div>
                     <div className="effects-example">{stage === 'next-action' ? nextActionExampleLabelFor(selected.id) : stage === 'phase-end' ? phaseEndExampleLabelFor(selected.id) : stage ? regroupExampleLabel(selected.id) : showcaseLabel(selected.id)}</div>
                     {(hasRegroupExample(selected.id) || hasNextActionExample(selected.id) || hasPhaseEndExample(selected.id)) && <div className="effects-boundary" role="group" aria-label="Example timing">
