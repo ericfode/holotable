@@ -29,7 +29,7 @@ import { batchA15IntermediateLayout } from '../effects/batchA15Signatures';
 import { batchA16IntermediateLayout } from '../effects/batchA16Signatures';
 import { CardEffectOverlay } from '../effects/CardEffectOverlay';
 import { KeyHelp, KeysButton } from '../components/Keys';
-import { isTyping } from '../play/keys';
+import { CONTROL, isTyping } from '../play/keys';
 import { useCardEffectAudio } from '../effects/audio';
 import { EffectSoundControls } from '../components/EffectSoundControls';
 import { detectCardEffects } from '../effects/detect';
@@ -387,6 +387,10 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                     s.seek(next.index);
                 }
             } else if (key === ' ') {
+                // listening on the whole page: a focused button of the host page (outside the viewer) keeps its Space
+                if (keyboard === 'window' && root.current && !k.composedPath?.().includes(root.current) && el?.closest?.(CONTROL)) {
+                    return;
+                }
                 s.togglePlay();
             } else if (key === 'Home') {
                 s.seek(0);
