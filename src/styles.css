@@ -1124,6 +1124,8 @@ input[type="range"].scrub {
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
+    min-width: 0;
+    max-width: 100%;
 }
 .fullscreen-control button:focus-visible {
     outline: 2px solid var(--color-gold);

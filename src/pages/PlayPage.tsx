@@ -625,7 +625,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     <span className="text-faint truncate max-w-[16rem]">{botDeck}</span>
                     {cur && <span className="text-dim num">Round {cur.round} · {cur.phase}</span>}
                     {down && !end && <span className="text-p2">Reconnecting…</span>}
-                    <span className="ml-auto flex gap-2">
+                    <span className="ml-auto flex flex-wrap items-center gap-2 max-w-full">
                         <FullscreenButton className="play-btn ghost" />
                         <KeysButton onClick={() => setHelp(true)} className="play-btn ghost" />
                         {!auto && !end && <button className="play-btn ghost" onClick={() => setAuto(true)} title="Decisions with only one answer wait for you; turn on to have them go by themselves">One-answer moves: ask</button>}
