@@ -1438,6 +1438,11 @@ input[type="range"].scrub {
     white-space: nowrap;
     pointer-events: none;
 }
+.foot > .dud-mark {
+    position: static;
+    align-self: center;
+    transform: none;
+}
 .play-btn.dud,
 .play-btn.primary.dud {
     background: transparent;
