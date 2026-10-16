@@ -139,10 +139,9 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
     };
     // the timeline step under the pointer: the board score panel previews it
     const [hoverStep, setHoverStep] = useState<number | null>(null);
-    const { speed, setSpeed, perspective, setPerspective, art, setArt, lens: forcedValues, score: savedScore, setScore: saveScore, sound, volume } = useSettings();
+    const { speed, setSpeed, perspective, setPerspective, art, setArt, lens: forcedValues, score: savedScore, setScore: saveScore, sound, volume, effects: effectsOn, setEffects: setEffectsOn } = useSettings();
     const root = useRef<HTMLDivElement>(null);
     const effectBoard = useRef<HTMLDivElement>(null);
-    const [effectsOn, setEffectsOn] = useState(true);
     const [effectCue, setEffectCue] = useState<CardEffectCue | null>(null);
     const [completedEffect, setCompletedEffect] = useState<CardEffectCue | null>(null);
     useCardEffectAudio(effectCue, sound, volume);
@@ -565,8 +564,8 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
                 </div>
                 <div className="flex gap-2 ml-auto items-center flex-wrap">
                     <FullscreenButton />
-                    <button className="btn !h-8 !px-2" aria-pressed={effectsOn} onClick={() => setEffectsOn(!effectsOn)} title="Card animations pause playback briefly so each effect can finish">
-                        <Sparkles size={14} />Effects
+                    <button className="btn !h-8 !px-2" aria-pressed={effectsOn} onClick={() => setEffectsOn(!effectsOn)} aria-label="Card animations" title="Card animations pause playback briefly so each effect can finish">
+                        <Sparkles size={14} />Animations {effectsOn ? 'on' : 'off'}
                     </button>
                     <EffectSoundControls onEnabled={() => {
                         const cue = effectCue ?? cardEffects.get(step);

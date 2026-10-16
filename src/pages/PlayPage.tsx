@@ -1,5 +1,9 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { useStore } from 'zustand';
+import { liveCardEffects } from '../effects/live';
+import { CardEffectOverlay } from '../effects/CardEffectOverlay';
+import type { CardEffectCue } from '../effects/types';
 import { Flag, Hand, Loader2, Minus, Play, Plus, RotateCcw, Send, Undo2 } from 'lucide-react';
 import { Board } from '../components/Board';
 import { Card, type Focus } from '../components/Card';
@@ -209,9 +213,16 @@ interface Held { seq: number; a: Action; split?: { id: string; amount: number }[
 
 function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string; onLeave: () => void }) {
     const table = useContext(TableContext);
-    const settings = useMemo(() => createSettingsStore(null, { perspective: seat }), [seat]);
+    const settings = useMemo(() => createSettingsStore('holotable.play', { perspective: seat }), [seat]);
     const [hello, setHello] = useState<HelloMsg | null>(null);
     const [shown, setShown] = useState<Shown | null>(null);
+    const snapshotRef = useRef<Snapshot | null>(null);
+    const liveEffects = useRef(liveCardEffects());
+    const [effectCue, setEffectCue] = useState<CardEffectCue | null>(null);
+    const effectsOn = useStore(settings, s => s.effects);
+    const effectsRef = useRef(effectsOn);
+    effectsRef.current = effectsOn;
+    useEffect(() => { if (!effectsOn) { setEffectCue(null); liveEffects.current.clear(); } }, [effectsOn]);
     const [log, setLog] = useState<Omit<MoveMsg, 'state'>[]>([]);
     const [decide, setDecide] = useState<DecideMsg | null>(null);
     const [end, setEnd] = useState<EndMsg | null>(null);
@@ -264,15 +275,20 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 setHello(m);
             } else if (m.t === 'move') {
                 const snap = toSnapshot(m.state, seat);
+                const cue = effectsRef.current && queue.current.length < 8 ? liveEffects.current.move(snapshotRef.current, snap, m) : null;
+                snapshotRef.current = snap;
+                setEffectCue(cue);
                 setShown((s) => ({ prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 const { state: _state, ...entry } = m;
                 setLog((l) => [entry, ...l].slice(0, 60));
                 // the other side's moves since the person's own last one
                 setTrail((t) => (m.seat === seat ? [] : [...t, { id: m.card?.id, text: logText(m) }].slice(-TRAIL)));
                 // catching up after a reload or a long wait: no pauses
-                wait = m.seat !== seat && queue.current.length < 8 ? BOT_MOVE_MS : 0;
+                wait = cue ? cue.definition.durationMs : m.seat !== seat && queue.current.length < 8 ? BOT_MOVE_MS : 0;
             } else if (m.t === 'decide') {
                 const snap = toSnapshot(m.state, seat);
+                snapshotRef.current = snap;
+                if (m.prompt.actionWindow) liveEffects.current.clear();
                 setShown((s) => (s && JSON.stringify(s.cur) === JSON.stringify(snap) ? s : { prev: s?.cur ?? null, cur: snap, n: (s?.n ?? 0) + 1 }));
                 setDecide(m);
                 setSending(false);
@@ -285,6 +301,9 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 // the person take back moves, undo present) the real choice the person is about to make
                 setUndoable(!!m.undo || (m.undo === false && m.actions.length > 1));
             } else if (m.t === 'rewind') {
+                liveEffects.current.clear();
+                setEffectCue(null);
+                if (m.state) snapshotRef.current = toSnapshot(m.state, seat);
                 // the move is back (the board as it was then, the moves after it gone), or could not be: either way the
                 // decision that follows says what to do next, and until it comes the old one is gone and Undo waits
                 undoAt.current = 'back';
@@ -611,7 +630,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const youDeck = hello?.deck.metadata?.name;
     const botDeck = hello?.opponent.metadata?.name;
     const actor: Seat | null = end ? null : decide ? seat : seat === 'p1' ? 'p2' : 'p1';
-    const live = decide && !sending && !held && !undoing;
+    const live = decide && !sending && !held && !undoing && !effectCue;
     const zoomKey = focus ? `${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}` : '';
 
     return (
@@ -627,6 +646,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                     {down && !end && <span className="text-p2">Reconnecting…</span>}
                     <span className="ml-auto flex flex-wrap items-center gap-2 max-w-full">
                         <FullscreenButton className="play-btn ghost" />
+                        <button className="play-btn ghost" aria-label="Card animations" aria-pressed={effectsOn} onClick={() => settings.getState().setEffects(!effectsOn)}>Animations {effectsOn ? 'on' : 'off'}</button>
                         <KeysButton onClick={() => setHelp(true)} className="play-btn ghost" />
                         {!auto && !end && <button className="play-btn ghost" onClick={() => setAuto(true)} title="Decisions with only one answer wait for you; turn on to have them go by themselves">One-answer moves: ask</button>}
                         {!end && <HoldButton className="play-btn ghost" onGo={() => void table.concede(id)} title="Give up this game"><Flag size={14} /> Concede</HoldButton>}
@@ -640,6 +660,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                                     onFocus={setFocus} onLeave={unlook} values={false} spots={false} center={center} fanHand={seat} />
                             </PickContext.Provider>
                         ) : <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Shuffling…</div>}
+                        <CardEffectOverlay cue={effectCue} boardRef={boardRef} onComplete={() => setEffectCue(null)} />
                         {cur && <BoardLines root={boardRef} step={shown!.n} trail={trail} botSeat={seat === 'p1' ? 'p2' : 'p1'}
                             asking={live && !end ? asking : null} answers={answers} question={decide ? promptText(decide) : null} />}
                     </div>
