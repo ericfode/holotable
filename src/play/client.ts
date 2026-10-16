@@ -10,12 +10,69 @@ import type { Seat } from '../data/types';
 import { hashParam } from '../lib/route';
 
 export interface DeckOption { name: string; leader: string; base: string; style: string | null }
-/** botDeck: the list the bot gets unless the person picks one, or 'random' (one picked by each game's seed) */
-export interface TableOptions { bots: string[]; decks: DeckOption[]; botDeck: string }
+/** A bot's row in the opponent picker: its title (else its name), who made it, its rating, a note, its download size. */
+export interface BotInfo { title?: string | null; owner?: string | null; elo?: number | null; note?: string | null; bytes?: number | null }
+/** How a person can find another person at an open table: the lobby, an invite link, joining one, or codes pasted by hand. */
+export type PeopleMode = 'lobby' | 'invite' | 'join' | 'direct';
+/**
+ * botDeck: the list the bot gets unless the person picks one, or 'random' (one picked by each game's seed). Everything
+ * after it is optional: a table that offers none of it (the HTTP table, the arena's /play) gets today's start screen.
+ */
+export interface TableOptions {
+    bots: string[];
+    decks: DeckOption[];
+    botDeck: string;
+    /** richer rows for the bots, by name: shown in the opponent picker */
+    botInfo?: Record<string, BotInfo>;
+    /** what the start screen offers besides playing a bot (default none) */
+    people?: PeopleMode[];
+    /** the start screen has a box to add a deck from a SWUDB link or a pasted list (Table.importDeck) */
+    importDeck?: boolean;
+    /** your name as other players see it (a random id like pl_7f3a9c) */
+    you?: string | null;
+    /** a code from the page's address: open on "Join a friend" with it filled in */
+    join?: string | null;
+    /** one line under the start screen, e.g. how finished games are kept */
+    notice?: string | null;
+}
+
+/** What the start screen asks the table for when the person wants to play a person. */
+export type PairRequest =
+    /** find a person; with botAfterMs, the table starts a bot game if nobody comes in that time */
+    | { how: 'lobby'; deck: string; botAfterMs: number | null }
+    /** a link and a short code through the lobby */
+    | { how: 'invite'; deck: string }
+    /** a lobby link/code or a pasted direct code: the table tells them apart */
+    | { how: 'join'; deck: string; code: string }
+    /** a code to paste to a friend, no lobby */
+    | { how: 'direct'; deck: string };
+
+/** Where a pairing is now, as the table reports it (each report replaces the last). */
+export interface PairState {
+    /** what is happening now, one line */
+    text: string;
+    /** a code to copy and send (invite code, direct offer code, or the direct answer code to send back) */
+    code?: string | null;
+    /** a link to copy (lobby invite) */
+    link?: string | null;
+    /** when set, a field with this label where the host pastes the friend's answer code, and a Connect button (answer) */
+    askCode?: string | null;
+}
+
+/** A pairing in progress: done resolves when the game starts (the person's seat, the opponent's name) or rejects with why not. */
+export interface Pairing {
+    done: Promise<{ id: string; seat: Seat; opponent: string }>;
+    cancel(): void;
+    answer?(code: string): void;
+}
 
 export interface Table {
     options(): Promise<TableOptions>;
     start(bot: string, deck: string, botDeck: string): Promise<{ id: string; seat: Seat }>;
+    /** add a deck from a SWUDB link or a pasted list; the returned deck is also listed by later options() calls */
+    importDeck?(text: string): Promise<DeckOption>;
+    /** find a person to play (the modes in options().people); the game then plays through act, follow and concede as usual */
+    pair?(req: PairRequest, onState: (s: PairState) => void): Pairing;
     /** rejects with the table's reason when it refuses the answer (the decision stays open) */
     act(id: string, act: Act): Promise<unknown>;
     concede(id: string): Promise<unknown>;
