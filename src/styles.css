@@ -1176,3 +1176,148 @@ input[type="range"].scrub {
     background: var(--color-panel);
     box-shadow: 0 24px 60px -20px #000;
 }
+
+/* Keyboard keys (components/Keys.tsx, play/keys.ts): key caps on cards and buttons, the drawn keyboard and the key list.
+   Caps on cards sit over the art's middle, clear of the marks, upgrades and stats; phones without a keyboard hide them. */
+.kc {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.55em;
+    height: 1.55em;
+    padding: 0 0.35em;
+    border-radius: 4px;
+    border: 1px solid color-mix(in oklab, var(--color-fg) 22%, var(--color-line));
+    border-bottom-width: 2px;
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font: 600 11px/1 var(--font-mono);
+    white-space: nowrap;
+    flex: none;
+}
+.play-btn .kc {
+    margin-left: 2px;
+    font-size: 10.5px;
+}
+.play-btn.primary .kc {
+    background: color-mix(in oklab, var(--color-ink) 82%, var(--color-good));
+    border-color: color-mix(in oklab, var(--color-ink) 60%, var(--color-good));
+    color: var(--color-good);
+}
+.card .pick-key {
+    position: absolute;
+    left: 50%;
+    top: 36%;
+    z-index: 6;
+    transform: translate(-50%, -50%);
+    font-size: 15px;
+    min-width: 1.7em;
+    height: 1.7em;
+    border-color: var(--color-good);
+    color: var(--color-good);
+    background: color-mix(in oklab, var(--color-ink) 88%, transparent);
+    box-shadow: 0 2px 8px -2px #000c;
+    pointer-events: none;
+}
+.card.sm .pick-key {
+    font-size: 12px;
+    top: 50%;
+}
+.card.picked .pick-key {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+}
+@media (hover: none) and (pointer: coarse) {
+    .kc.hint,
+    .card .pick-key {
+        display: none;
+    }
+}
+.keyhelp-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: color-mix(in oklab, var(--color-bg) 72%, transparent);
+    backdrop-filter: blur(3px);
+}
+.keyhelp {
+    width: min(660px, 100%);
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--color-panel);
+    box-shadow: 0 24px 60px -20px #000;
+}
+.keyhelp-list {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, auto) minmax(0, 1fr);
+    gap: 7px 12px;
+    margin: 0;
+    font-size: 13px;
+    align-items: center;
+}
+.kmap {
+    --k: clamp(19px, 5.2vw, 30px);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+.kmap-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.kmap-key {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: var(--k);
+    height: var(--k);
+    flex: none;
+    border-radius: 5px;
+    border: 1px solid var(--color-line);
+    border-bottom-width: 2px;
+    color: var(--color-faint);
+    font: 600 11px/1 var(--font-mono);
+}
+.kmap-key small {
+    position: absolute;
+    bottom: 1px;
+    font: 500 6.5px/1 var(--font-sans);
+    letter-spacing: 0.02em;
+    opacity: 0.9;
+}
+.kmap-key.kmap-space {
+    width: calc(6 * var(--k));
+}
+.kmap-key.on {
+    color: var(--color-fg);
+    --tone: var(--color-dim);
+    border-color: color-mix(in oklab, var(--tone) 70%, var(--color-line));
+    background: color-mix(in oklab, var(--tone) 18%, var(--color-ink));
+}
+.k-them { --tone: var(--color-p2); }
+.k-you { --tone: var(--color-p1); }
+.k-hand { --tone: color-mix(in oklab, var(--color-p1) 55%, var(--color-fg)); }
+.k-choice { --tone: var(--color-gold); }
+.k-main { --tone: var(--color-good); }
+.k-move { --tone: var(--color-gold); }
+.k-other { --tone: var(--color-p1); }
+.kmap-note {
+    margin-left: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.kmap-note > span {
+    color: var(--tone);
+}

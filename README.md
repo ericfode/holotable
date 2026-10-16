@@ -90,6 +90,10 @@ file beside it.
 <script>const v = SWUViewer.mount(document.getElementById('game'), { url: 'games/x.jsonl', evals, lens }); v.seek(120);</script>
 ```
 
+The viewer's keys (`?` lists them) work while it has focus; `keyboard: 'window'` makes them work anywhere on the page
+while the viewer is shown, for a page that is mostly this viewer. `mountPlay`'s keys always work page-wide while its
+table is shown.
+
 It also exports `mountBoard`, `mountGlyph`, `mountActionIcon`, `scoreSeries`, `scoreAt`, `pivotal`, `loadCardText`,
 `loadArtPack`, `setArtResolver` and more (see `src/kit/index.tsx`). `node scripts/kit-demo.mjs <game.jsonl>` writes a
 one-file demo page next to the bundle.
@@ -130,7 +134,20 @@ Who embeds it:
 - **Card text** (`src/lib/cardText.ts`, `components/CardFace.tsx`): with printed card data loaded (`card-text.json`, `swu-card-text/1` from `viewer-kit/make-card-text.py`, keyed by set code like a replay card's `s`), a card with no image (Vector, missing art, a failed image, an unreleased set) is drawn in the inspector as a readable text face: name, subtitle, cost, aspect pips, type, arena and traits, rules text (triggers bold, `[costs]` boxed, reminder text dim), a leader's epic action and deployed side, printed power/HP, upgrade bonus or base HP; the type size steps down until the text fits. Tiles take their real aspect colours (Vigilance blue, Command green, Aggression rust red, Cunning yellow, Heroism off-white, Villainy black; several aspects split across the diagonal), shaded away from the seat colours and the score violet. Without the data, cards keep the monogram tiles in muted per-name tones. The app asks its data source for it (`/card-text.json` from the dev/preview server, `card-text.json` in a static build); the kit takes `cardText` in mount options or `SWUViewer.loadCardText(url | object)`.
 - **Tokens**: units with no set code (the recorder writes `s: null` for tokens: Battle Droid, Clone Trooper, X-Wing, Mandalorian, Beast, Spy…) carry a TOKEN tag on the card; token upgrades (Shield, Experience, Advantage, Weakness) are the light `t: 1` chips.
 - **Decision log** grouped by round, with what each decision changed (units entering or defeated, base damage, resources).
-- Keyboard: ← → step, shift for 10, `[` `]` (or ↑ ↓) jump a round, space play, Home/End, ⌘K / Ctrl+K command palette.
+- **Keyboard** (`?` or the Keys button lists every key on a drawn keyboard; no key fires while a text field, menu or
+  list box has focus):
+  - Replays: ← → or A D step (shift for 10), ↑ ↓, W S or `[` `]` jump a round, Q E jump to the previous or next key
+    moment (the marks on the timeline), space play, 0-9 jump to 0-90%, Home/End, - = slower and faster, H whose hand to
+    show, C card art, L back to live. ⌘K / Ctrl+K is the command palette.
+  - Play mode: the keyboard's rows are the board's rows. Q-P pick the top side's base, leader, then units (p2's, the
+    opponent's at today's tables); A-; the bottom side's (p1's, yours); Z-. the cards in your hand; 1-0 the other choices in the prompt bar (shift+1-0 for 11 and up; a choose-a-number menu
+    puts each number on its own key); space or Enter the main button (Pass, Done, Confirm, Keep). A card's key comes from
+    its place on the board, so the opponent's base is always Q and your leader always S. Every glowing card and button
+    shows its key cap (the Keys list can hide them). Shift + a card's letter enlarges a board or hand card without
+    picking it (hovering does the same, also for the prompt bar's cards); in a damage split each target's key (or a click on it) puts one more there, Backspace takes the last one back and space
+    confirms; Esc presses Cancel when the prompt has one; `/` jumps to a long menu's search box. Keys wait 250 ms after
+    a new decision shows, and held keys don't repeat, so a key meant for the last decision can't answer the next.
+    Code: `src/play/keys.ts` (which key does what), `components/Keys.tsx` (key caps and the key list).
 - Live games (no end record yet) are re-read every second; the view follows the newest move until you scrub away.
 
 ## Layout

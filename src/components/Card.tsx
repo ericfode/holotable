@@ -6,6 +6,7 @@ import type { CardRef, Seat, UnitRef, UpgradeRef } from '../data/types';
 import { rowColor } from '../data/terms';
 import { digitsOf, unitText } from '../data/format';
 import { PickContext } from '../play/pick';
+import { Kbd } from './Keys';
 
 /** Leader fronts and bases are printed landscape ('wide'); everything else, a deployed leader included, is portrait ('tall'). */
 export type CardShape = 'tall' | 'wide';
@@ -193,6 +194,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
     // play mode: a card that is a legal click glows and answers the click
     const picker = useContext(PickContext);
     const pickState = picker && card.id ? picker.state(card.id) : null;
+    const pickKey = pickState && picker?.keyOf ? picker.keyOf(card.id!) : null;
     const [failed, setFailed] = useState<string | null>(null);
     // an image whose orientation doesn't match the box (art data can disagree with the card type) is fitted whole, not cropped
     const [mismatch, setMismatch] = useState<string | null>(null);
@@ -237,7 +239,10 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
             onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    picker!.pick(card.id!);
+                    // a held key, or one pressed as the next decision arrives, picks nothing
+                    if (!e.repeat && picker!.keyReady?.() !== false) {
+                        picker!.pick(card.id!);
+                    }
                 }
             }
         }
@@ -271,6 +276,7 @@ export function Card({ card, size = 'md', shape = 'tall', back = false, unit, co
                     <span className="nm">{card.n}</span>
                 </div>
             )}
+            {pickKey && <Kbd k={pickKey} className="pick-key" />}
             {(leader || unit?.sn || token || ups || cap.length > 0) && (
                 <div className="top">
                     {(leader || unit?.sn || token || cap.length > 0) && (

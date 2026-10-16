@@ -96,6 +96,11 @@ export interface MountOptions {
     layout?: 'full' | 'compact';
     /** called whenever the playhead moves, with the step index and that step's Step.n */
     onStep?: (step: number, n: number) => void;
+    /**
+     * where the viewer's keys work (? lists them): 'focus' (default) while the viewer has focus, as one of several things
+     * on a page; 'window' anywhere on the page while the viewer is shown, for a page that is mostly this viewer
+     */
+    keyboard?: 'focus' | 'window';
     /** load the viewer's Google fonts into the host document (default true; fonts can't load from inside a shadow root) */
     fonts?: boolean;
 }
@@ -263,7 +268,7 @@ export function mount(el: HTMLElement, opts: MountOptions = {}): ViewerHandle {
         root.render(
             <SettingsProvider store={settings}><MotionConfig reducedMotion="user">
                 <GameViewer key={key} game={game} live={!game.end} startStep={opts.step ?? (opts.stepN != null ? indexOfN(opts.stepN) : 0)} evals={evals}
-                    lens={lens} registry={registry} score={scoreKey} onScore={onScore} estimate={opts.estimate} spots={opts.spots !== false} layout={opts.layout ?? 'full'} onStep={opts.onStep}
+                    lens={lens} registry={registry} score={scoreKey} onScore={onScore} estimate={opts.estimate} spots={opts.spots !== false} layout={opts.layout ?? 'full'} onStep={opts.onStep} keyboard={opts.keyboard ?? 'focus'}
                     control={(c) => {
                         ctl = c;
                         if (pending != null) {
