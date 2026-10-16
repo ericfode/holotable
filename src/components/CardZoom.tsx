@@ -335,6 +335,16 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
     const ref = useRef<HTMLDivElement>(null);
     // how much taller the facts are than the 96px guess (long names, upgrades, captives), measured before paint
     const [extra, setExtra] = useState(0);
+    // a resize (a phone turned) while the zoom is open sizes it again from the new window
+    const [, setResized] = useState(0);
+    useEffect(() => {
+        const resized = () => {
+            setExtra(0);
+            setResized((n) => n + 1);
+        };
+        window.addEventListener('resize', resized);
+        return () => window.removeEventListener('resize', resized);
+    }, []);
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const wide = focus.shape === 'wide';
