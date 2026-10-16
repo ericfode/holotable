@@ -197,8 +197,9 @@ export interface CardEffectOutcome {
 
 /** A visual interpretation of a recorded, resolved card action. Never changes game state. */
 export interface CardEffectCue {
+    animationOverride?: string;
     /** Checked shared recipe plus explicit reasons for omitted receipts. */
-    structured?: { recipe: import('./structured').StructuredRecipe | null; sourceKnown?: boolean; fallbacks: string[] };
+    structured?: { recipe: import('./structured').StructuredRecipe | null; sourceKnown?: boolean; recipes?: import('./structured').StructuredRecipe[]; fallbacks: string[] };
     definition: CardEffectDefinition;
     seat: Seat;
     source: CardRef | null;
@@ -218,6 +219,8 @@ export interface CardEffectCue {
 }
 
 export interface EffectPreview {
+    /** Review-only comparison; ordinary callers use the default resolver. */
+    renderer?: import('./animationResolver').AnimationRenderer;
     /** Compare shared JSON recipes with the established authored signature. */
     structured?: boolean;
     definition: CardEffectDefinition;

@@ -51,12 +51,14 @@ function fixture(card = source) {
 }
 
 test('generated index maps seven reusable families and accounts for every definition', async () => {
-    assert.equal(index.coverage.totalDefinitions, index.coverage.mappedDefinitions + Object.values(index.coverage.excluded).reduce((a,b)=>a+b,0));
-    assert.deepEqual(Object.keys(index.coverage.families).sort(), ['damage','defeat','exhaust','heal','ready','resource','return']);
+    assert.equal(index.coverage.totalDefinitions, index.coverage.allCards.routed);
+    assert.equal(index.coverage.events.routed, 442);
+    assert.equal(index.coverage.events.routed, index.coverage.events.fullyMappedShape + index.coverage.events.partialShape + index.coverage.events.unsupportedShape);
+    assert.ok(Object.keys(index.coverage.families).length >= 15);
     const seen = new Map();
     for (const card of index.cards) {
         const printed = JSON.parse(fs.readFileSync(path.join(__dirname, '../forceteki/test/json/Card', `${card.id}.json`)));
-        assert.equal(card.name, printed.title);
+        assert.equal(card.name, printed.subtitle ? `${printed.title}: ${printed.subtitle}` : printed.title);
         for (const print of card.prints) { assert.ok(!seen.has(print), `${print} ambiguous`); seen.set(print, card.id); }
     }
     const { classifyAnimation, animationIndex } = await import('../scripts/import-kessel-animations.mjs');
@@ -70,7 +72,7 @@ test('generated index maps seven reusable families and accounts for every defini
     const compound=copy(raw.cards[0]);compound.abilities.card[0].effect.then={kind:'draw'};assert.equal(classifyAnimation(compound).reason,'compound-effect');
 });
 
-test('unregistered exact prints enter the real event detector without replacing authored signatures', () => {
+test('unregistered exact prints enter the real event detector with ordinary authored entries migrated to the shared default', () => {
     const { game, action }=fixture(); const saved=copy(game);
     const actions=classifyGame(game); assert.equal(actions[0].cls,'play-event');
     const cue=detectCardEffects(game,actions).get(2);
@@ -78,7 +80,7 @@ test('unregistered exact prints enter the real event detector without replacing 
     assert.equal(cue.outcomes[0].amount,1); assert.deepEqual(game,saved);
     assert.equal(detectCardEffects(game,[{...action,cls:'ability'}]).size,0);
     const open=fixture({id:'event',n:'Open Fire',s:'SOR_172'});
-    assert.equal(detectCardEffects(open.game,[open.action]).get(2).structured,undefined);
+    assert.equal(detectCardEffects(open.game,[open.action]).get(2).structured.recipe,'damage');
 });
 
 test('unknown print, absent print, and unresolved live actions never guess a definition', () => {
@@ -102,12 +104,17 @@ for (const id of ['open-fire','repair','vanquish','waylay','keep-fighting']) tes
     assert.notEqual(previewSceneKey({definition,nonce:1}),shared.key);
 });
 
-test('unsupported modal and aggregate-only resource outcomes surface explicit fallback reasons', () => {
-    for(const [id,reason] of [['command','unsupported-definition'],['resupply','insufficient-physical-evidence:resource']]) {
-        const definition=CARD_EFFECTS.find(c=>c.id===id),before=showcaseGame(definition).steps[0].state;
-        const cue=preparePreviewCue({definition,nonce:1,structured:true},before);
-        assert.deepEqual(cue.outcomes,[]);assert.ok(cue.structured.fallbacks.includes(reason));assert.notDeepEqual(cue.transition.before,cue.transition.after);
-    }
+test('modal composition renders witnessed modes and aggregate resources stay count-only', () => {
+    const definition=CARD_EFFECTS.find(c=>c.id==='command'), before=showcaseGame(definition).steps[0].state;
+    const cue=preparePreviewCue({definition,nonce:1,structured:true},before);
+    assert.deepEqual(cue.outcomes.filter(o=>!o.sourceDisposal).map(o=>o.kind).sort(),['buff','defeat']);
+    assert.ok(cue.structured.fallbacks.includes('insufficient-physical-evidence:damage'), 'a minimal discard reference proves departure but not lethal damage amount');
+    const resupply=CARD_EFFECTS.find(c=>c.id==='resupply'), state=showcaseGame(resupply).steps[0].state;
+    const raw=preparePreviewCue({definition:resupply,nonce:1},state);
+    raw.outcomes=[{kind:'resource',card:null,seat:'p1',zone:'resources',amount:1}];
+    const aggregate=planStructuredCue(raw);
+    assert.equal(aggregate.outcomes[0].card,null);assert.equal(aggregate.outcomes[0].fromZone,undefined);
+    assert.ok(aggregate.structured.fallbacks.includes('aggregate-only:resource'));
 });
 
 test('missing, duplicate, unknown and different-incarnation physical recipients never acquire a rich visual', () => {
@@ -204,4 +211,55 @@ test('runtime fixture base identities, HP and event payment agree with installed
     }
     const printed=JSON.parse(fs.readFileSync(path.join(__dirname,'../forceteki/test/json/Card/ill-cover-for-you.json')));
     assert.equal(game.steps[0].state.players.p1.res.ready-game.steps[2].state.players.p1.res.ready,printed.cost);
+});
+
+const {resolveCardAnimation, routeAnimationCue, defineAnimationOverrides, CARD_ANIMATION_OVERRIDES}=loadTS(path.join(__dirname,'../src/effects/animationResolver.ts'));
+test('shared default migrates ordinary legacy entries; bespoke precedence is an explicit exact-print opt-in',()=>{
+    let shared=0,overrides=0;
+    for(const entry of CARD_EFFECTS){const route=resolveCardAnimation({n:entry.name,s:entry.setCode});if(route.renderer==='shared')shared++;else overrides++;}
+    assert.equal(shared,175);assert.equal(overrides,5);assert.equal(CARD_ANIMATION_OVERRIDES.entries.length,5);
+    const repair=CARD_EFFECTS.find(c=>c.id==='repair'), before=showcaseGame(repair).steps[0].state, raw=preparePreviewCue({definition:repair,nonce:0},before);
+    assert.ok(routeAnimationCue(raw).structured);assert.equal(routeAnimationCue(raw,'legacy').structured,undefined);
+    const custom=defineAnimationOverrides([{signatureId:'repair',prints:['SOR_074'],reason:'Explicit reviewed alternate.'}]);
+    assert.equal(routeAnimationCue(raw,'default',custom).animationOverride,'repair');
+    assert.ok(routeAnimationCue(raw,'shared',custom).structured);
+    assert.throws(()=>defineAnimationOverrides([{signatureId:'repair',prints:['SOR_172'],reason:'Wrong print.'}]));
+    assert.throws(()=>defineAnimationOverrides([{signatureId:'repair',prints:['SOR_074'],reason:''}]));
+    assert.throws(()=>defineAnimationOverrides([...custom.entries,...custom.entries]));
+});
+for(const demo of require('./fixtures/structured-compositions.cjs'))test(`${demo.title}: unregistered JSON composition through classifier and default detector without special ID registration`,()=>{
+    assert.equal(CARD_EFFECTS.some(c=>c.id===demo.id),false);
+    const actions=classifyGame(demo.game), cue=detectCardEffects(demo.game,actions).get(2);
+    assert.equal(actions[0].target,null);assert.equal(cue.definition.id,`structured:${demo.id}`);
+    assert.deepEqual(cue.structured.recipes.sort(),demo.recipes.sort());assert.deepEqual(cue.structured.fallbacks,[]);
+    assert.equal(cue.structured.sourceKnown,true);assert.equal(cue.outcomes.filter(o=>o.sourceDisposal).length,1);
+    const c=JSON.parse(fs.readFileSync(path.join(__dirname,'../forceteki/test/json/Card',demo.id+'.json')));
+    assert.equal(demo.game.steps[0].state.players.p1.res.ready-demo.game.steps[2].state.players.p1.res.ready,c.cost);
+});
+test('compositional importer flags future fields and dynamic/empty groups instead of overclaiming mapping',async()=>{
+    const {compileEffectProgram,summarizeProgram}=await import('../scripts/import-kessel-animations.mjs');
+    const draw={kind:'draw',target:'self',amount:{kind:'const',value:1}}, summary=e=>summarizeProgram(compileEffectProgram(e));
+    for(const effect of [{kind:'sequence',effects:[]},{kind:'simultaneous'}, {kind:'resolveChoice'}, {kind:'chooseModalEffects',choices:{kind:'query'}}]) assert.ok(summary(effect).unsupported.length);
+    for(const effect of [{kind:'sequence',effects:[draw],futureBranch:{}},{kind:'chooseModalEffects',choices:[{label:'A',effect:draw,futureBranch:{}}]},{...draw,futureBranch:{}}]){assert.deepEqual(summary(effect).recipes,['draw']);assert.ok(summary(effect).unsupported.length);}
+    assert.deepEqual(summary({kind:'delayedEffect',effect:{kind:'defeat'}}).recipes,[]);
+});
+test('aggregate deck receipts cannot double-spend a deck decrease or use duplicate/wrong-seat physical origins',()=>{
+    for(const mode of ['combined','duplicate','wrong-seat']){
+        const {cue,before,after}=fixture();before.players.p1.deck=6;after.players.p1.deck=3;
+        after.players.p1.hand=[{id:'a',n:'A',s:null},{id:'b',n:'B',s:null},{id:'c',n:'C',s:null}];
+        cue.outcomes=[{kind:'draw',card:null,seat:'p1',zone:'hand',amount:3}];
+        if(mode==='combined'){after.players.p1.discard.push(...['d','e','f'].map(id=>({id,n:id,s:null})));cue.outcomes.push({kind:'mill',card:null,seat:'p1',zone:'discard',amount:3});}
+        if(mode==='duplicate')before.players.p1.knownDeck=[{id:'a',n:'A',s:null},{id:'a',n:'A',s:null},...['u','v','w','x'].map(id=>({id,n:id,s:null}))];
+        if(mode==='wrong-seat')before.players.p2.knownDeck=[{id:'a',n:'A',s:null}];
+        assert.equal(planStructuredCue(cue).outcomes.filter(o=>['draw','mill'].includes(o.kind)).length,0,mode);
+    }
+});
+test('control preserves ownership; an Attach heuristic does not suppress an event; recovery does not infer bottom position',()=>{
+    const {cue,before,after,game,action}=fixture();after.players.p2.ground=[];after.players.p1.ground=[copy(body)];
+    cue.outcomes=[{kind:'control',card:body,seat:'p1',fromSeat:'p2',fromZone:'ground',zone:'ground',ownerSeat:'p2'}];
+    const control=planStructuredCue(cue).outcomes[0];assert.equal(control.ownerSeat,'p2');assert.equal(control.seat,'p1');
+    assert.equal(detectCardEffects(game,[{...action,cls:'play-upgrade'}]).size,1);
+    before.players.p2.ground=[];before.players.p1.discard=[copy(body)];after.players.p1.ground=[];after.players.p1.knownDeck=[copy(body)];
+    cue.outcomes=[{kind:'recover',card:body,seat:'p1',zone:'deck',amount:1}];
+    const recovery=planStructuredCue(cue).outcomes[0];assert.equal(recovery.destination,undefined);assert.equal(recovery.label,'RECOVERED TO DECK');
 });

@@ -256,7 +256,7 @@ export function ZoneTravel({ placed, p, card }: { placed: PlacedOutcome; p: numb
     const cardBox = screenCardSize(from);
     // The attached-unit compound uses the outside margin, keeping its draw away from both arena rows.
     const marginX = 12 / (from.sx ?? 1);
-    const restock = outcome.kind === 'recover' && outcome.zone === 'deck';
+    const restock = outcome.kind === 'recover' && outcome.zone === 'deck' && (outcome.destination === 'deck-bottom' || placed.routeLabels !== false);
     const curve = restock
         ? { x: Math.max(70, Math.min(930, (from.x + to.x) / 2 + (placed.slot - 1.5) * 170)), y: Math.max(95, Math.min(from.y, to.y) - 280) }
         : { x: (from.x + to.x) / 2, y: Math.max(65, Math.min(from.y, to.y) - 75) };

@@ -43,7 +43,7 @@ export const nextActionExampleLabelFor = (id: string) => id === 'close-the-shiel
     ? 'After P2 passes: pay 1 for the selected Jedi Lightsaber from discard, attach it to Marine for +3/+3, and consume only that copy’s phase permission'
     : nextActionExampleLabel;
 export const nextActionExampleLabel = 'Next P2 action: the same Trooper attacks Sentinel Defender; both are defeated and the obligation is consumed';
-export const previewSceneKey = (preview: EffectPreview) => `preview:${preview.definition.id}:${preview.nonce}${preview.stage ? `:${preview.stage}` : ''}${preview.structured ? ':structured' : ''}`;
+export const previewSceneKey = (preview: EffectPreview) => `preview:${preview.definition.id}:${preview.nonce}${preview.stage ? `:${preview.stage}` : ''}${preview.structured ? ':structured' : ''}${preview.renderer ? `:${preview.renderer}` : ''}`;
 export const regroupExampleLabel = (id: string) => id === 'final-showdown'
     ? 'Regroup begins: P1 loses by Final Showdown; P2 wins, with the actual board intact'
     : id === 'unnatural-life'

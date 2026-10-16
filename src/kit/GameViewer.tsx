@@ -32,6 +32,7 @@ import { KeyHelp, KeysButton } from '../components/Keys';
 import { CONTROL, isTyping } from '../play/keys';
 import { useCardEffectAudio } from '../effects/audio';
 import { EffectSoundControls } from '../components/EffectSoundControls';
+import { routeAnimationCue } from '../effects/animationResolver';
 import { detectCardEffects } from '../effects/detect';
 import { preparePreviewCue, previewSceneKey } from '../effects/previewStages';
 import type { CardEffectCue, EffectPreview } from '../effects/types';
@@ -228,7 +229,7 @@ export function GameViewer({ game, live = false, startStep = 0, evals = null, le
         }
         const before = game.steps[step].state;
         const cue = preparePreviewCue(effectPreview, before);
-        setEffectCue(cue);
+        setEffectCue(effectPreview.structured ? cue : routeAnimationCue(cue, effectPreview.renderer));
     }, [effectPreview, game, step]);
     const pivotal = useMemo(() => pivotalActions(actions, 10), [actions]);
     const actionAt = useMemo(() => new Map(actions.map((a) => [a.index, a])), [actions]);
