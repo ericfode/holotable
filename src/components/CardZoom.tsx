@@ -335,7 +335,8 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
     const ref = useRef<HTMLDivElement>(null);
     // how much taller the facts are than the 96px guess (long names, upgrades, captives), measured before paint
     const [extra, setExtra] = useState(0);
-    // a resize (a phone turned) while the zoom is open sizes it again from the new window
+    // a resize (a phone turned) while the zoom is open sizes it again from the new window, and a panel that changes height
+    // after it was measured (web fonts arriving, card text loading) is measured again
     const [, setResized] = useState(0);
     useEffect(() => {
         const resized = () => {
@@ -343,7 +344,14 @@ export function FloatingZoom({ focus, score }: CardZoomProps) {
             setResized((n) => n + 1);
         };
         window.addEventListener('resize', resized);
-        return () => window.removeEventListener('resize', resized);
+        const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => setResized((n) => n + 1));
+        if (ref.current) {
+            ro?.observe(ref.current);
+        }
+        return () => {
+            window.removeEventListener('resize', resized);
+            ro?.disconnect();
+        };
     }, []);
     const vw = window.innerWidth;
     const vh = window.innerHeight;
