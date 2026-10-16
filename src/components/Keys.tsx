@@ -142,11 +142,20 @@ const REPLAY_TONES: Record<string, Tone> = {
 for (const c of ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0']) REPLAY_TONES[c] = 'choice';
 
 /**
- * Every key, on a drawn keyboard: in play mode its rows are the board's rows (choices, their side, your side, your
- * hand); in a replay the left hand's W A S D steps and jumps. Esc, ? or a click outside closes it.
+ * Every key, on a drawn keyboard: in play mode its rows are the board's rows (choices, the top side, the bottom side,
+ * your hand; the board draws p2 on top, so `seat` says whose side each row is); in a replay the left hand's W A S D
+ * steps and jumps. Esc, ? or a click outside closes it.
  */
-export function KeyHelp({ mode, live = false, onClose }: { mode: 'play' | 'replay'; live?: boolean; onClose: () => void }) {
+export function KeyHelp({ mode, live = false, seat = 'p1', onClose }: { mode: 'play' | 'replay'; live?: boolean; seat?: 'p1' | 'p2'; onClose: () => void }) {
     const [hints, setHints] = useKeyHints();
+    // the top row is the other seat's side unless the person sits at p2
+    const mineOnTop = seat === 'p2';
+    const playTone = (c: string): Tone | null => {
+        const t = PLAY_TONES[c] ?? null;
+        return mineOnTop && (t === 'them' || t === 'you') ? (t === 'them' ? 'you' : 'them') : t;
+    };
+    const topSide = mineOnTop ? 'Your side' : 'Their side';
+    const bottomSide = mineOnTop ? 'Their side' : 'Your side';
     const close = useRef<HTMLButtonElement>(null);
     useEffect(() => close.current?.focus(), []);
     return (
@@ -160,16 +169,16 @@ export function KeyHelp({ mode, live = false, onClose }: { mode: 'play' | 'repla
                 {mode === 'play' ? (
                     <>
                         <p className="text-dim text-[13px] m-0">The keyboard's rows are the board's rows. Every card you can pick and every choice shows its key.</p>
-                        <KeyboardMap tone={(c) => PLAY_TONES[c] ?? null} sub={{ KeyQ: 'base', KeyW: 'leader', KeyA: 'base', KeyS: 'leader' }}
-                            rowNotes={[<span key="c" className="k-choice">choices in the bar</span>, <span key="t" className="k-them">their side</span>, <span key="y" className="k-you">your side</span>, <span key="h" className="k-hand">your hand</span>]}
+                        <KeyboardMap tone={playTone} sub={{ KeyQ: 'base', KeyW: 'leader', KeyA: 'base', KeyS: 'leader' }}
+                            rowNotes={[<span key="c" className="k-choice">choices in the bar</span>, <span key="t" className={mineOnTop ? 'k-you' : 'k-them'}>{topSide.toLowerCase()}</span>, <span key="y" className={mineOnTop ? 'k-them' : 'k-you'}>{bottomSide.toLowerCase()}</span>, <span key="h" className="k-hand">your hand</span>]}
                             spaceNote={<span className="k-main">main button</span>} />
                         <dl className="keyhelp-list">
                             <Row keys={<><Kbd k="Space" /> <Kbd k="Enter" /></>}>The green button: Pass, Done, Confirm, Keep</Row>
                             <Row keys={range('Digit1', 'Digit0')}>The other choices in the bar, left to right (<Kbd k="Shift+Digit1" />… for 11 and up)</Row>
-                            <Row keys={range('KeyQ', 'KeyP')}>Their side: base, leader, then units left to right</Row>
-                            <Row keys={range('KeyA', 'Semicolon')}>Your side: base, leader, then units left to right</Row>
+                            <Row keys={range('KeyQ', 'KeyP')}>{topSide} (the top): base, leader, then units left to right</Row>
+                            <Row keys={range('KeyA', 'Semicolon')}>{bottomSide} (the bottom): base, leader, then units left to right</Row>
                             <Row keys={range('KeyZ', 'Period')}>Your hand, left to right</Row>
-                            <Row keys={<><Kbd k="ShiftLeft" /> + card key</>}>Look at the card without picking it; then <Kbd k="Enter" /> picks it, <Kbd k="Escape" /> closes</Row>
+                            <Row keys={<><Kbd k="ShiftLeft" /> + card letter</>}>Look at a card on the board or in your hand without picking it; then <Kbd k="Enter" /> picks it, <Kbd k="Escape" /> closes</Row>
                             <Row keys={<>card key</>}>Splitting damage or healing: one more there. <Kbd k="Backspace" /> takes the last one back, <Kbd k="Space" /> confirms</Row>
                             <Row keys={<Kbd k="Escape" />}>Cancel, when the choice offers it</Row>
                             <Row keys={<Kbd k="Slash" />}>Search a long list of choices</Row>

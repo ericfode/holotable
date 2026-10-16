@@ -151,6 +151,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
     const [sending, setSending] = useState(false);
     const [problem, setProblem] = useState<string | null>(null);
     const [focus, setFocus] = useState<Focus | null>(null);
+    const unlook = useCallback(() => setFocus(null), []);
     const [help, setHelp] = useState(false);
     const [hints] = useKeyHints();
     const queue = useRef<TableMsg[]>([]);
@@ -327,7 +328,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 }
                 return;
             }
-            if (e.key === '/') {
+            if (e.code === 'Slash' && !e.shiftKey) {
                 const search = root.querySelector<HTMLElement>('[data-key-search]');
                 if (search) {
                     e.preventDefault();
@@ -340,8 +341,9 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 return;
             }
             e.preventDefault();
-            if (t.kind === 'card' && e.shiftKey) {
-                // look without picking: the card takes focus, so it shows enlarged; Enter then picks it, Esc lets go
+            if (t.kind === 'card' && e.shiftKey && !k.startsWith('Shift+')) {
+                // look without picking (⇧ + a letter): the card takes focus, so it shows enlarged; Enter then picks it,
+                // Esc lets go. ⇧ + a digit is a key of its own (choices 11 to 20), so it picks
                 root.querySelector<HTMLElement>(`.card[data-effect-id="${CSS.escape(t.id)}"]`)?.focus();
             } else if (ready()) {
                 if (t.kind === 'act') {
@@ -381,7 +383,7 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                         {cur && ids ? (
                             <PickContext.Provider value={decide && !sending ? pick : null}>
                                 <Board state={cur} prev={shown!.prev} ids={ids[ids.length - 1]} prevIds={shown!.prev ? ids[0] : null} bots={names} actor={actor} step={shown!.n}
-                                    onFocus={setFocus} onLeave={() => setFocus(null)} values={false} spots={false} />
+                                    onFocus={setFocus} onLeave={unlook} values={false} spots={false} />
                             </PickContext.Provider>
                         ) : <div className="p-8 text-dim flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Shuffling…</div>}
                     </div>
@@ -400,10 +402,10 @@ function Table({ id, seat, bot, onLeave }: { id: string; seat: Seat; bot: string
                 </div>
                 {/* a new bar for each decision, so a button focused by a click can't take the next decision's Space */}
                 <PromptBar key={decide?.seq ?? 'wait'} decide={decide} sending={sending} problem={problem} board={cur} bot={bot} drawn={drawn} pick={pick} onAct={act} ended={!!end}
-                    keys={keys} hints={hints} splitApi={splitApi} />
+                    keys={keys} hints={hints} splitApi={splitApi} onLook={setFocus} onUnlook={unlook} />
                 {focus && <FloatingZoom key={`${focus.card.n}:${focus.rect?.left}:${focus.rect?.top}`} focus={focus} score={null} />}
                 {end && <EndCard end={end} seat={seat} bot={bot} id={id} onLeave={onLeave} hints={hints} />}
-                {help && <KeyHelp mode="play" onClose={() => setHelp(false)} />}
+                {help && <KeyHelp mode="play" seat={seat} onClose={() => setHelp(false)} />}
             </div>
         </SettingsProvider>
     );
@@ -434,9 +436,11 @@ function drawnIds(s: Snapshot, you: Seat): Set<string> {
     return out;
 }
 
-function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi }: {
+function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, ended, keys, hints, splitApi, onLook, onUnlook }: {
     decide: DecideMsg | null; sending: boolean; problem: string | null; board: Snapshot | null; bot: string; drawn: Set<string>; pick: Pick;
     onAct: (a: Action, split?: { id: string; amount: number }[]) => void; ended: boolean; keys: PlayKeys; hints: boolean; splitApi: RefObject<SplitApi | null>;
+    /** a tray card shown enlarged (hovered, or focused with ⇧ + its key), and let go */
+    onLook: (f: Focus | null) => void; onUnlook: () => void;
 }) {
     const [all, setAll] = useState(false);
     // the key cap a button shows: Space on the main button, the bar's number (or ⇧number) on the others
@@ -476,7 +480,7 @@ function PromptBar({ decide, sending, problem, board, bot, drawn, pick, onAct, e
                         return (
                             <div key={c.id} className={`flex flex-col items-center gap-1 ${c.st === 'unselectable' || c.st === 'invalid' ? 'opacity-50' : ''}`}>
                                 <PickContext.Provider value={pick}>
-                                    <Card card={c} size="sm" kind="hand" />
+                                    <Card card={c} size="sm" kind="hand" onFocus={onLook} onLeave={onUnlook} />
                                 </PickContext.Provider>
                                 <span className="text-[11px] text-dim max-w-[6rem] truncate" title={c.n}>{c.n}</span>
                                 {per.map((a) => <button key={a.i} className="play-btn small" disabled={sending} onClick={() => onAct(a)}>{a.label.split(':')[0]}{cap(a)}</button>)}

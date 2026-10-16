@@ -139,12 +139,12 @@ Who embeds it:
   - Replays: ← → or A D step (shift for 10), ↑ ↓, W S or `[` `]` jump a round, Q E jump to the previous or next key
     moment (the marks on the timeline), space play, 0-9 jump to 0-90%, Home/End, - = slower and faster, H whose hand to
     show, C card art, L back to live. ⌘K / Ctrl+K is the command palette.
-  - Play mode: the keyboard's rows are the board's rows. Q-P pick the opponent's base, leader, then units; A-; yours;
-    Z-. the cards in your hand; 1-0 the other choices in the prompt bar (shift+1-0 for 11 and up; a choose-a-number menu
+  - Play mode: the keyboard's rows are the board's rows. Q-P pick the top side's base, leader, then units (p2's, the
+    opponent's at today's tables); A-; the bottom side's (p1's, yours); Z-. the cards in your hand; 1-0 the other choices in the prompt bar (shift+1-0 for 11 and up; a choose-a-number menu
     puts each number on its own key); space or Enter the main button (Pass, Done, Confirm, Keep). A card's key comes from
     its place on the board, so the opponent's base is always Q and your leader always S. Every glowing card and button
-    shows its key cap (the Keys list can hide them). Shift + a card's key enlarges the card without picking it; in a
-    damage split each target's key (or a click on it) puts one more there, Backspace takes the last one back and space
+    shows its key cap (the Keys list can hide them). Shift + a card's letter enlarges a board or hand card without
+    picking it (hovering does the same, also for the prompt bar's cards); in a damage split each target's key (or a click on it) puts one more there, Backspace takes the last one back and space
     confirms; Esc presses Cancel when the prompt has one; `/` jumps to a long menu's search box. Keys wait 250 ms after
     a new decision shows, and held keys don't repeat, so a key meant for the last decision can't answer the next.
     Code: `src/play/keys.ts` (which key does what), `components/Keys.tsx` (key caps and the key list).
