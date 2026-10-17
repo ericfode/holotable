@@ -2149,19 +2149,20 @@ input[type="range"].scrub {
 .board-surface .hand-card { width: var(--board-hand-slot, 76px); flex: none; }
 .board-surface .hand-name { height: 22px; }
 .play-layout { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
-.play-table-area { position: relative; min-width: 0; padding: 8px; height: var(--table-height, calc(100dvh - 110px)); }
+.play-surface { min-width: 0; }
+.play-table-area { position: relative; min-width: 0; min-height: 0; padding: 8px; }
 .play-move-log { max-height: 180px; min-height: 0; }
-@media (min-width: 1024px) {
+@container (min-width: 1100px) {
     .play-layout { grid-template-columns: minmax(0, 1fr) 240px; }
-    .play-move-log { max-height: var(--table-height, calc(100dvh - 140px)); }
+    .play-move-log { max-height: 720px; }
 }
 .table-board {
-    height: 100%; min-height: 0;
-    display: grid; grid-template-rows: minmax(0, .95fr) 112px minmax(0, 1.05fr);
+    min-height: 0;
+    display: grid; grid-template-rows: auto 112px auto;
     gap: 8px;
 }
 .table-board > .half { min-height: 0; overflow: hidden; }
-.table-board .side-field { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.table-board .side-field { flex: 1; min-height: calc(var(--board-unit-width, 100px) * 1.4 + 40px); max-height: calc(var(--board-unit-width, 100px) * 2.8 + 56px); overflow: auto; overscroll-behavior: contain; }
 .table-board .half-bottom .side-field { display: flex; flex-direction: column; }
 .table-board .half-bottom .board-row { margin-top: auto; flex: none; }
 .table-board .hand { flex: none; flex-wrap: nowrap; padding: 5px 8px; gap: 6px; }
@@ -2178,6 +2179,20 @@ input[type="range"].scrub {
 .fullscreen-surface .table-board .play-center { position: relative; inset: auto; min-height: 0; height: 100%; overflow: auto; z-index: 30; }
 .table-board .play-bar { width: 100%; min-height: 100%; max-height: none; box-sizing: border-box; }
 .table-board .play-bar.held { overflow: auto; }
+/* Expanded tables have a bounded container. Windowed tables retain natural, legible page height. */
+.play-surface[data-screen-mode="fullscreen"] .play,
+.play-surface[data-screen-mode="maximized"] .play { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.play-surface[data-screen-mode="fullscreen"] .play-layout,
+.play-surface[data-screen-mode="maximized"] .play-layout { min-height: 0; }
+/* On short screens, scroll the surface instead of collapsing either field underneath its hand. */
+.play-surface[data-screen-mode="fullscreen"] .play-table-area,
+.play-surface[data-screen-mode="maximized"] .play-table-area { min-height: 800px; }
+.play-surface[data-screen-mode="fullscreen"] .table-board,
+.play-surface[data-screen-mode="maximized"] .table-board { height: 100%; grid-template-rows: minmax(0, .95fr) 112px minmax(0, 1.05fr); }
+.play-surface[data-screen-mode="fullscreen"] .table-board .side-field,
+.play-surface[data-screen-mode="maximized"] .table-board .side-field { min-height: 0; max-height: none; }
+.play-surface[data-screen-mode="fullscreen"] .play-move-log,
+.play-surface[data-screen-mode="maximized"] .play-move-log { max-height: 100%; }
 @media (hover: none) and (pointer: coarse) {
     .table-board .hand.fan { flex-wrap: wrap; }
     .table-board .hand.fan .hand-cards { flex-basis: 100%; overflow: visible; }

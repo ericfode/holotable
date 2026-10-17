@@ -65,7 +65,7 @@ export function PlayPage() {
         address('#/play');
     };
     return (
-        <FullscreenSurface>
+        <FullscreenSurface className="play-surface @container">
             {!game && <div className="flex justify-end px-4 pt-3"><FullscreenButton className="play-btn ghost" /></div>}
             {game ? <Table key={game.id} {...game} onLeave={leave} /> : <StartScreen onStart={begin} />}
         </FullscreenSurface>
@@ -246,7 +246,7 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
     const [auto, setAuto] = useAutoAnswer();
     const [trail, setTrail] = useState<Trail[]>([]);
     const boardRef = useRef<HTMLDivElement>(null);
-    const cardSize = useBoardSpace(boardRef, true);
+    const cardSize = useBoardSpace(boardRef);
     const [problem, setProblem] = useState<string | null>(null);
     const [focus, setFocus] = useState<Focus | null>(null);
     // the pointer or the keys let go of a card; a card a tap opened stays open until it is closed
@@ -651,7 +651,7 @@ function Table({ id, seat: joinedSeat, bot, onLeave }: { id: string; seat: Seat;
 
     return (
         <SettingsProvider store={settings}>
-            <div ref={rootRef} className="play flex flex-col min-h-[calc(100vh-3rem)]" style={{ '--take-back': `${TAKE_BACK_MS}ms` } as CSSProperties}>
+            <div ref={rootRef} className="play flex flex-col min-h-0" style={{ '--take-back': `${TAKE_BACK_MS}ms` } as CSSProperties}>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-line text-sm">
                     <span className="font-display font-semibold" style={{ color: `var(--color-${seat})` }}>You</span>
                     <span className="text-faint truncate max-w-[16rem]">{youDeck}</span>
