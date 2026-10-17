@@ -5,11 +5,13 @@ import { sharedEffectRole, sharedSemanticMotion } from './semanticMotion';
 
 /** Actual entry/control endpoints use the existing measured ending layout and pixel-sized card faces. */
 function SharedEntry({ placed, p }: { placed: PlacedOutcome; p: number }) {
-    const t = easeInOut(phase(p, .2, .72)), from = placed.from, to = placed.to, body = placed.outcome.unit;
+    const t = easeInOut(phase(p, .2, .72)), to = placed.to, body = placed.outcome.unit;
+    const local = placed.outcome.entryType === 'observed';
+    const from = local ? { ...to, exact: false } : placed.from;
     const at = { ...to, x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
     const final = to.cardSize ?? { w: 72, h: 101 }, initial = from.cardSize ?? { w: 48, h: 68 };
     const face = { w: initial.w + (final.w - initial.w) * t, h: initial.h + (final.h - initial.h) * t };
-    return <g data-semantic-role={sharedEffectRole(placed.outcome.kind)} data-semantic-motion={placed.outcome.kind === 'control' ? 'control-transfer' : 'intact-entry'}>
+    return <g data-semantic-role={sharedEffectRole(placed.outcome.kind)} data-observed-entry={local || undefined} data-semantic-motion={local ? 'local-entry' : placed.outcome.kind === 'control' ? 'control-transfer' : 'intact-entry'}>
         {from.exact && <AttachmentMask at={from} p={p} start={.2} />}
         <ScreenPixels at={at} opacity={phase(p, .18, .24)} color={colorOf(placed.outcome.kind)}>
             <g transform={`rotate(${body?.x ? 10 * t : 0})`}><CardGhost card={body ?? placed.outcome.card} box={face} />

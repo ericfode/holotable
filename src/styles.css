@@ -2158,7 +2158,7 @@ input[type="range"].scrub {
 }
 .table-board {
     min-height: 0;
-    display: grid; grid-template-rows: auto 112px auto;
+    display: grid; grid-template-rows: auto 176px auto;
     gap: 8px;
 }
 .table-board > .half { min-height: 0; overflow: hidden; }
@@ -2175,8 +2175,8 @@ input[type="range"].scrub {
 .table-board .hq .card[data-effect-base] { --w: clamp(100px, var(--board-unit-width), 150px); }
 .table-board .hq .card[data-effect-zone="leader"] { --w: 100px !important; }
 .table-board .lane { min-height: 60px; }
-.table-board .board-middle { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; gap: 0; }
-.fullscreen-surface .table-board .play-center { position: relative; inset: auto; min-height: 0; height: 100%; overflow: auto; z-index: 30; }
+.table-board .board-middle { position: relative; z-index: 40; isolation: isolate; overflow: hidden; display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; gap: 0; }
+.fullscreen-surface .table-board .play-center { position: relative; inset: auto; min-height: 0; height: 100%; overflow: hidden; z-index: 30; }
 .table-board .play-bar { width: 100%; min-height: 100%; max-height: none; box-sizing: border-box; }
 .table-board .play-bar.held { overflow: auto; }
 /* Expanded tables have a bounded container. Windowed tables retain natural, legible page height. */
@@ -2188,7 +2188,7 @@ input[type="range"].scrub {
 .play-surface[data-screen-mode="fullscreen"] .play-table-area,
 .play-surface[data-screen-mode="maximized"] .play-table-area { min-height: 800px; }
 .play-surface[data-screen-mode="fullscreen"] .table-board,
-.play-surface[data-screen-mode="maximized"] .table-board { height: 100%; grid-template-rows: minmax(0, .95fr) 112px minmax(0, 1.05fr); }
+.play-surface[data-screen-mode="maximized"] .table-board { height: 100%; grid-template-rows: minmax(0, .95fr) 176px minmax(0, 1.05fr); }
 .play-surface[data-screen-mode="fullscreen"] .table-board .side-field,
 .play-surface[data-screen-mode="maximized"] .table-board .side-field { min-height: 0; max-height: none; }
 .play-surface[data-screen-mode="fullscreen"] .play-move-log,
@@ -2198,3 +2198,15 @@ input[type="range"].scrub {
     .table-board .hand.fan .hand-cards { flex-basis: 100%; overflow: visible; }
     .board-surface .hand.fan .hand-card + .hand-card { margin-left: calc(var(--step, 76px) - var(--board-hand-slot, 76px)); }
 }
+
+/* The response heading and move picker stay inside their own reserved track.
+   Only the details scroll; neither a long prompt nor the hand can cover them. */
+.table-board .play-bar.decision { height: 100%; min-height: 0; padding: 0; gap: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.play-decision-heading { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-bottom: 1px solid var(--color-line); color: var(--color-gold); background: var(--color-panel); font-size: 13px; }
+.play-decision-body { min-height: 0; overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; overflow-wrap: anywhere; }
+.play-decision-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 5px 10px; border-top: 1px solid var(--color-line); background: var(--color-panel); }
+.play-decision-footer .play-btn { min-height: 30px; }
+.play-response-indicator { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--color-dim); }
+.play-response-indicator.required { padding: 4px 8px; border: 1px solid var(--color-gold); border-radius: 7px; color: var(--color-gold); background: color-mix(in oklab, var(--color-gold) 9%, var(--color-panel)); }
+.play-bar[data-response-required="true"] { border-color: var(--color-gold); }
+.table-board .play-bar.decision[hidden] { display: none; }

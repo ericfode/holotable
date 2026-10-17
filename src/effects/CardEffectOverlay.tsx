@@ -749,7 +749,7 @@ function EffectScene({ cue, boardRef, onComplete, previewProgress }: Omit<Props,
         </div>
         <div className="ce-phase-tag"><span className="ce-phase-dot" /><span>{stage}</span><span>{Math.round(progress * 100)}%</span></div>
         <div ref={captionRef} className="ce-caption" style={{ opacity: easeOut(phase(progress, 0, .08)) }}>
-            <span className="ce-caption-mark">✦</span><div><span className="ce-caption-label">{cue.exampleLabel ? 'CHOREOGRAPHED EXAMPLE' : 'RECORDED CARD EFFECT'}</span><strong>{cue.definition.name}</strong><span className="ce-caption-description">{cue.structured?.fallbacks.length ? structuredFallbackText(cue.structured.fallbacks) : cue.exampleLabel ?? (geometry.outcomes.length ? 'Observed outcomes highlighted on the table' : 'No resolved outcomes are available in this recording')}</span></div>
+            <span className="ce-caption-mark">✦</span><div><span className="ce-caption-label">{cue.exampleLabel ? 'CHOREOGRAPHED EXAMPLE' : cue.definition.id === 'structured:live-board-change' ? 'LIVE ACTION' : 'RECORDED CARD EFFECT'}</span><strong>{cue.definition.name}</strong><span className="ce-caption-description">{cue.structured?.fallbacks.length ? cue.definition.id === 'structured:live-board-change' ? 'Showing changes confirmed on the table.' : structuredFallbackText(cue.structured.fallbacks) : cue.exampleLabel ?? (geometry.outcomes.length ? 'Observed outcomes highlighted on the table' : 'No resolved outcomes are available in this recording')}</span></div>
             <span className="ce-caption-bar" style={{ transform: `scaleX(${1 - progress})` }} />
         </div>
     </div>;

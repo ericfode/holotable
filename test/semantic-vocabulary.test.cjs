@@ -93,3 +93,13 @@ test('control transfer carries the same body with actual current power, wounds a
     }
     assert.equal(unit.owner,'p2');assert.equal(unit.incarnation,'continuing-entry');
 });
+
+test('first public arena appearance fades locally without inventing a hand origin, including reverse seeks',()=>{
+    const unit={id:'public-body',n:'Palace Chef Droid',s:'JTL_237',p:1,h:3,d:0,x:1};
+    const outcome={kind:'play',entryType:'observed',card:unit,unit,seat:'p2',zone:'ground',amount:1};
+    const draw=p=>renderToStaticMarkup(React.createElement(StructuredSignature,{geometry:{source,outcomes:[{...placed(outcome),from:{...box,x:900,y:800},to:box}]},p,sourceKnown:false}));
+    for(const p of [.18,.46,.72,.9,.46,.18]){
+        const svg=draw(p);assert.match(svg,/data-semantic-motion="local-entry"/);assert.doesNotMatch(svg,/translate\(900|translate\(800|ce-mask/);assert.doesNotMatch(svg,/NaN|Infinity|data-semantic-projectile/);
+    }
+    assert.equal(draw(.46),draw(.46));
+});

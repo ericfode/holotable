@@ -54,3 +54,34 @@ export function liveCardEffects() {
         }
     };
 }
+
+/** Seat-view duels do not reveal an opponent's hand or the cause of every trigger.
+ * Animate only physical public differences, with no inferred attacker, hidden
+ * source, target selection or travel origin. No-op clicks stay quiet.
+ */
+export function observedLiveChanges(before: Snapshot | null, after: Snapshot, move: MoveMsg): CardEffectCue | null {
+    if (!before || before.phase !== 'action' || before.phase !== after.phase || before.round !== after.round) return null;
+    const action: Action = { index: 1, until: 1, seat: move.seat, cls: 'choose', card: null, target: null,
+        outcome: { baseDamage: 0, defeated: 0, entered: 0 }, swing: 0 };
+    const game: Game = { header: { t: 'header', v: 1, seed: 0, engine: null, players: [] },
+        steps: [{ t: 'step', n: 0, state: before }, { t: 'step', n: move.n, state: after }], end: null };
+    const outcomes = observedOutcomes(game, action).filter(o => !['ready', 'exhaust', 'resource', 'draw', 'mill', 'discard'].includes(o.kind));
+    const publicCards = (s: Snapshot) => Object.values(s.players).flatMap(p => [p.base, ...(p.leader && !p.leader.dep ? [p.leader] : []),
+        ...p.hand, ...p.discard, ...(p.resources ?? []), ...p.ground, ...p.space,
+        ...[...p.ground, ...p.space].flatMap(c => [...(c.u ?? []), ...(c.cap ?? [])])]);
+    const previous = new Set(publicCards(before).map(c => c.id));
+    const current = new Map<string, number>();
+    for (const card of publicCards(after)) if (card.id) current.set(card.id, (current.get(card.id) ?? 0) + 1);
+    for (const seat of ['p1', 'p2'] as Seat[]) for (const zone of ['ground', 'space'] as const) {
+        for (const card of after.players[seat][zone]) {
+            if (!card.id || previous.has(card.id) || current.get(card.id) !== 1) continue;
+            outcomes.push({ kind: 'play', card, unit: card, seat, zone, amount: 1, entryType: 'observed', label: 'Entered arena; origin not shown' });
+        }
+    }
+    if (!outcomes.length) return null;
+    const cue = routeAnimationCue({ definition: { id: 'live-board-change', name: 'Live action', description: 'Changes confirmed on the table',
+        setCode: '', family: 'support', color: '#91d9e6', visual: 'structured', durationMs: 1800 },
+        source: null, target: null, seat: move.seat, outcomes, key: `live-observed:${move.n}`,
+        transition: { before, after } }, 'shared');
+    return cue.outcomes?.length ? cue : null;
+}

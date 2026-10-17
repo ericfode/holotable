@@ -119,7 +119,7 @@ export interface CardEffectOutcome {
     /** Complete staged entering unit; hand references cannot establish its arena stats. */
     unit?: UnitRef;
     entersReady?: boolean;
-    entryType?: 'played' | 'rescued' | 'created' | 'detached';
+    entryType?: 'played' | 'rescued' | 'created' | 'detached' | 'observed';
     pending?: PendingEffect;
     duration?: 'phase' | 'attack' | 'regroup' | 'round' | 'token' | 'permanent' | 'next-action';
     deckOperation?: DeckOperation;
