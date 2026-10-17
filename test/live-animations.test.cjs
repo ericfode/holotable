@@ -22,9 +22,11 @@ function loadTS(filename) {
     }, module, module.exports);
     return module.exports;
 }
-const {liveCardEffects}=loadTS(path.join(__dirname,'../src/effects/live.ts'));
+const {liveCardEffects,observedLiveChanges}=loadTS(path.join(__dirname,'../src/effects/live.ts'));
 const {createSettingsStore,releaseSettingsStore}=loadTS(path.join(__dirname,'../src/lib/settings.ts'));
 const demos=require('./fixtures/semantic-vocabulary.cjs');
+const {toSnapshot}=loadTS(path.join(__dirname,'../src/play/protocol.ts'));
+const {planStructuredCue}=loadTS(path.join(__dirname,'../src/effects/structured.ts'));
 const move=(source,n=1)=>({t:'move',n,seat:'p1',kind:'card',label:source.n,card:source});
 for(const demo of demos)test(`live ${demo.title}: shared vocabulary uses witnessed receipt and physical identity`,()=>{
     const before=demo.game.steps[0].state,after=demo.game.steps[2].state,source=before.players.p1.hand[0];
@@ -71,4 +73,24 @@ test('boundary interruption clears a pending choice before a later successful re
     assert.equal(tracker.move(before,before,move(source)),null);
     assert.equal(tracker.move(before,{...before,round:before.round+1},{...move(source),card:undefined}),null);
     assert.equal(tracker.move(before,after,{...move(source),card:undefined}),null);
+});
+
+const duel=require('./fixtures/live-duel-events.json');
+for(const pair of duel.pairs)test(`actual two-person table move${pair.move.n} from${pair.viewer}: public change animates with unknown origin preserved`,()=>{
+    const {before,move,viewer}=pair,after=toSnapshot(move.state,viewer),cue=observedLiveChanges(before,after,move);
+    assert.ok(cue);assert.equal(cue.source,null);assert.equal(cue.target,null);assert.equal(cue.structured.sourceKnown,false);
+    assert.ok(cue.outcomes.some(o=>move.n===10?o.kind==='play':o.kind==='damage'||o.kind==='defeat'));
+    assert.ok(cue.outcomes.every(o=>!o.sourceDisposal));
+    if(move.n===10&&viewer==='p1'){const arrival=cue.outcomes.find(o=>o.kind==='play');assert.equal(arrival.fromZone,undefined);assert.equal(arrival.fromSeat,undefined);}
+});
+test('actual public arrival rejects duplicate physical IDs and contradictory names/prints',()=>{
+    const pair=duel.pairs.find(p=>p.move.n===10&&p.viewer==='p1'),after=toSnapshot(pair.move.state,pair.viewer),source=after.players.p2.ground[0];
+    const duplicate=structuredClone(after);duplicate.players.p2.discard.push({...source});
+    assert.equal(observedLiveChanges(pair.before,duplicate,pair.move),null);
+    const cue=observedLiveChanges(pair.before,after,pair.move);const bad={...cue,outcomes:cue.outcomes.map(o=>({...o,card:{...o.card,s:'SOR_999'}}))};
+    assert.equal(planStructuredCue(bad).outcomes.length,0);
+});
+test('ordinary target clicks, no-change moves and phase transitions remain quiet',()=>{
+    const pair=duel.pairs[0];assert.equal(observedLiveChanges(pair.before,pair.before,pair.move),null);
+    const after=toSnapshot(pair.move.state,pair.viewer);after.phase='regroup';assert.equal(observedLiveChanges(pair.before,after,pair.move),null);
 });

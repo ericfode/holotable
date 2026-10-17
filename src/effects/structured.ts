@@ -75,6 +75,15 @@ function supportedReceipt(outcome: CardEffectOutcome, cue: CardEffectCue): CardE
     }
     if (!outcome.card?.id) return null;
     const old = locate(before, outcome.card.id), now = locate(after, outcome.card.id);
+    // A seat view may first reveal a physical body when it reaches an arena. The
+    // landing is known; its hidden origin and the causing card remain unknown.
+    if (outcome.kind === 'play' && outcome.entryType === 'observed' && !cue.source && old.length === 0 && now.length === 1) {
+        const b = now[0];
+        if (!arena(b) || !unit(b.card) || b.seat !== outcome.seat || b.zone !== outcome.zone
+            || outcome.card.n !== b.card.n || outcome.card.s !== b.card.s || outcome.fromSeat || outcome.fromZone) return null;
+        return { kind: 'play', entryType: 'observed', card: b.card, unit: b.card, seat: b.seat,
+            zone: b.zone as 'ground' | 'space', entersReady: !b.card.x, amount: 1, label: 'ENTERED ARENA' };
+    }
     if (old.length !== 1 || now.length !== 1) return null;
     const a = old[0], b = now[0];
     if ((['return', 'resource', 'discard', 'recover', 'play', 'control', 'defeat'].includes(outcome.kind) && ((outcome.fromSeat && outcome.fromSeat !== a.seat) || (outcome.fromZone && outcome.fromZone !== a.zone)))
