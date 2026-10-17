@@ -16,10 +16,17 @@ test('viewer perspective keeps either own seat at the bottom with a stable spect
     assert.deepEqual(boardSeats('p2'), ['p1', 'p2']);
 });
 
-test('card scale uses available width and height while preserving minimum legibility and room for controls', () => {
-    assert.deepEqual(tableCardSize(335, 669), { unit: 90, hand: 72 });
-    assert.deepEqual(tableCardSize(1170, 679), { unit: 121, hand: 73 });
-    assert.deepEqual(tableCardSize(2400, 1600), { unit: 150, hand: 90 });
-    assert.ok(tableCardSize(1600, 500).unit < tableCardSize(1600, 1000).unit);
-    assert.ok(tableCardSize(700, 1000).unit < tableCardSize(1600, 1000).unit);
+test('ordinary embeds scale from their own width without a viewport-height budget', () => {
+    assert.deepEqual(tableCardSize(335), { unit: 90, hand: 72 });
+    assert.deepEqual(tableCardSize(1170), { unit: 130, hand: 73 });
+    assert.deepEqual(tableCardSize(2400), { unit: 150, hand: 90 });
+    assert.ok(tableCardSize(700).unit < tableCardSize(1600).unit);
+});
+
+test('bounded fields fit card faces and keep hand size independent to avoid resize feedback', () => {
+    const bounded = tableCardSize(1170, 150);
+    assert.deepEqual(bounded, { unit: 84, hand: 73 });
+    assert.ok(bounded.unit * 1.4 + 32 <= 150);
+    assert.equal(bounded.hand, tableCardSize(1170).hand);
+    assert.equal(tableCardSize(1170, 300).unit, tableCardSize(1170).unit);
 });

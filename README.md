@@ -127,7 +127,10 @@ Who embeds it:
   damage splits get a stepper per target, long menus (name a card) a search box. The prompt bar sits between the two
   sides in a fixed-height, scrollable track, so changing prompts never move the cards. Your confirmed seat always sits
   at the bottom, with your hand anchored to the table's bottom edge. Crowded fields and hands scroll independently;
-  card scale follows available screen space. Replays default to p1 at the bottom and offer a **Bottom seat** selector;
+  card scale follows the embed's own width. Ordinary tables grow in page flow so surrounding navigation, a short
+  window, or a narrow embed cannot squeeze the fields underneath the hands. The move log moves below narrow tables.
+  Fullscreen uses its bounded field height too; short screens scroll rather than hide cards. Replays default to p1
+  at the bottom and offer a **Bottom seat** selector;
   kit hosts can pass `bottomSeat: 'p2'` to `mount` or `mountBoard` for an explicit perspective. Everywhere: a move
   that would change nothing (the table's `noEffect` flag, or the engine's "(No effect)" choice) is grey and dashed and
   says "No effect"; the card whose ability asks the question wears a gold ring, with the question in a bubble and

@@ -1,27 +1,28 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
 import { tableCardSize } from './tableLayout';
 
-/** Measure the viewport/container, not the changing board or prompt's content height. */
-export function useBoardSpace(ref: RefObject<HTMLElement | null>, fitViewport = false) {
+/** Ordinary embeds size by their own width; fullscreen fields also have a real, bounded height. */
+export function useBoardSpace(ref: RefObject<HTMLElement | null>) {
     const [size, setSize] = useState({ unit: 100, hand: 72 });
     useLayoutEffect(() => {
         const el = ref.current;
         if (!el) return;
+        const surface = el.closest<HTMLElement>('.fullscreen-surface');
+        const observed = new Set<Element>();
         const measure = () => {
-            const surface = el.closest<HTMLElement>('.fullscreen-surface');
-            const expanded = surface && surface.dataset.screenMode !== 'inline';
-            // Scrolling a crowded table must not change the viewport budget on the next resize.
-            const top = el.getBoundingClientRect().top + (expanded ? surface.scrollTop : window.scrollY);
-            const height = Math.max(360, window.innerHeight - (fitViewport ? top : 80) - 8);
-            if (fitViewport) el.parentElement?.style.setProperty('--table-height', `${Math.round(height)}px`);
-            const next = tableCardSize(el.clientWidth, height);
+            const expanded = surface?.dataset.screenMode === 'fullscreen' || surface?.dataset.screenMode === 'maximized';
+            const fields = [...el.querySelectorAll<HTMLElement>('.table-board .side-field')];
+            for (const field of fields) if (!observed.has(field)) { observer.observe(field); observed.add(field); }
+            const heights = expanded ? fields.map(field => field.clientHeight).filter(height => height > 0) : [];
+            const next = tableCardSize(el.clientWidth, heights.length ? Math.min(...heights) : undefined);
             setSize(old => old.unit === next.unit && old.hand === next.hand ? old : next);
         };
-        measure();
         const observer = new ResizeObserver(measure);
         observer.observe(el);
-        window.addEventListener('resize', measure);
-        return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
-    }, [ref, fitViewport]);
+        const mode = new MutationObserver(measure);
+        if (surface) mode.observe(surface, { attributes: true, attributeFilter: ['data-screen-mode'] });
+        measure();
+        return () => { observer.disconnect(); mode.disconnect(); };
+    }, [ref]);
     return size;
 }
